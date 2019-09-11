@@ -1,0 +1,40 @@
+{
+    "title": "Big Thread For People Who Talk A Lot",
+    "id": "big-thread-for-people-who-talk-a-lot",
+    "isGame": false,
+    "postNum": 3,
+
+    "posts": [
+        {
+            "header": {
+                "name": "Mr McHorfndorf",
+                "date": "2014-01-01T23:28:56.782Z"
+            },
+            "textBlock": {
+                "text": "I LIKE POSTING"
+            }
+        },
+        {
+            "header": {
+                "name": "Was;dlkafj;eofj",
+                "date": "2014-01-01T23:29:57.782Z",
+                "title": "hey look guys i have a title"
+            },
+            "textBlock": {
+                "text": "I LIKE REPLYING"
+            }
+        },
+        {
+            "header": {
+                "name": "Bepis Polis",
+                "date": "2019-09-09T00:00:00.782Z"
+             },
+            "textBlock": {
+                "text": "I LIKE GETTIN MAD ABOUT VIDEO GAMES"
+            },
+            "edit": {
+                "date": "2019-09-10T00:00:00.782Z"
+            }
+        }
+    ]
+}

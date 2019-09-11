@@ -1,0 +1,69 @@
+[
+    {
+        "title": "General Discussion",
+        "forums": [
+            {
+                "title": "Tabletop Games",
+                "id": "tabletop-games",
+                "threadnum": 1234,
+                "posts": 567890
+            },
+            {
+                "title": "Video Games",
+                "id": "video-games",
+                "threadnum": 2134,
+                "posts": 567980
+            },
+            {
+                "title": "Inane Yelling",
+                "id": "inane-yelling",
+                "threadnum": 4321,
+                "posts": 98765,
+                "subforums": [
+                    {
+                        "title": "Politics",
+                        "id": "politics"
+                    },
+                    {
+                        "title": "Anime",
+                        "id": "anime"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "title": "Play By Posts",
+        "forums": [
+            {
+                "title": "Active Games",
+                "id": "active-games",
+                "threadnum": 12,
+                "posts": 1293486
+            },
+            {
+                "title": "Game Setup",
+                "id": "game-setup",
+                "threadnum": 504,
+                "posts": 1654
+            },
+            {
+                "title": "Dead Games",
+                "id": "dead-games",
+                "threadnum": 324752,
+                "posts": 324752
+            }
+        ]
+    },
+    {
+        "title": "Tech Support",
+        "forums": [
+            {
+                "title": "Please Stop Filing Bug Reports",
+                "id": "tech-support",
+                "threadnum": 1,
+                "posts": 1
+            }
+        ]
+    }
+]
