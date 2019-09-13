@@ -1,11 +1,14 @@
 let configs = require("../../config/config.js");
 let http = require("http");
+let request = require("request-promise-native");
 
 const urlstart = configs.configs.dburl + "/" + configs.configs.dbname;
 const designdoc = "/_design/forumdoc";
 const authstring = configs.configs.dbuser + ":" + configs.configs.dbpass;
 
-function quickErrorReturn(e) {
+const totalAuthString = "Basic " + Buffer.from(authstring).toString("base64");
+
+function quickErrorReturn(e, res) {
     console.log(e.message);
     // do something with the response
     res.send('{"error": "An error occured between the server and the database."}');
@@ -13,93 +16,188 @@ function quickErrorReturn(e) {
 
 exports.getGroupsData = function(req, res) {
     let geturl = urlstart + designdoc + "/_view/groups-and-forums";
-    let threadgeturl = urlstart + designdoc + "/_view/single-thread-stats";
-    
-    http.get(geturl, {auth: authstring}, rsp => {
-        let rdat = '';
-        rsp.on('data', d => rdat += d);
-        rsp.on('end', () => {
-            let jdat = JSON.parse(rdat);
-            // we should be given an object with a "rows" array that contains group objects and the forums that belong to them
-            // arrange them as an array of groups containing forums
-            let senddat = [];
-            let forums = [];
-            let subforums = [];
-            for (let row of jdat.rows) {
-                if (row.value.type == "group") {
-                    senddat.push({
-                            title: row.value.title,
-                            id: row.value.id,
-                            priority: row.value.priority,
-                            forums: []
-                        });
-                } else if (row.value.top) {
-                    forums.push({
+    request({
+        method: "GET",
+        uri: urlstart + designdoc + "/_view/groups-and-forums",
+        headers: { Authorization: totalAuthString },
+        json: true
+    }).then(jdat => {
+        // we should be given an object with a "rows" array that contains group objects and the forums that belong to them
+        // arrange them as an array of groups containing forums
+        let senddat = [];
+        let forums = [];
+        let subforums = [];
+        for (let row of jdat.rows) {
+            if (row.value.type == "group") {
+                senddat.push({
                         title: row.value.title,
                         id: row.value.id,
-                        parent: row.value.parent,
-                        threadnum: row.value.threadnum,
-                        posts: row.value.posts,
                         priority: row.value.priority,
-                        subforums: []
+                        forums: []
                     });
-                } else {
-                    subforums.push({
-                        title: row.value.title,
-                        id: row.value.id,
-                        priority: row.value.priority,
-                        parent: row.value.parent
-                    })
+            } else if (row.value.top) {
+                forums.push({
+                    title: row.value.title,
+                    id: row.value.id,
+                    parent: row.value.parent,
+                    threadnum: row.value.threadnum,
+                    posts: row.value.posts,
+                    priority: row.value.priority,
+                    subforums: []
+                });
+            } else {
+                subforums.push({
+                    title: row.value.title,
+                    id: row.value.id,
+                    priority: row.value.priority,
+                    parent: row.value.parent
+                })
+            }
+        }
+        // put subforums in parent forums
+        for (let sub of subforums) {
+            // locate the parent
+            let parenti = 0;
+            for (; parenti < forums.length; parenti++) {
+                if (sub.parent == forums[parenti].id) {
+                    break;
                 }
             }
-            // put subforums in parent forums
-            for (let sub of subforums) {
-                // locate the parent
-                let parenti = 0;
-                for (; parenti < forums.length; parenti++) {
-                    if (sub.parent == forums[parenti].id) {
-                        break;
-                    }
-                }
-                if (parenti < forums.length) { // found the parent
-                    delete sub.parent;
-                    forums[parenti].subforums.push(sub);
-                }
+            if (parenti < forums.length) { // found the parent
+                delete sub.parent;
+                forums[parenti].subforums.push(sub);
             }
+        }
 
-            // now add the forums to the proper groups
-            for (let forum of forums) {
-                // locate the parent
-                let parenti = 0;
-                for (; parenti < senddat.length; parenti++) {
-                    if (forum.parent == senddat[parenti].id) {
-                        break;
-                    }
-                }
-                if (parenti < senddat.length) { // found the parent
-                    delete forum.parent;
-                    if (forum.subforums.length == 0)
-                        delete forum.subforums;
-                    senddat[parenti].forums.push(forum);
+        // now add the forums to the proper groups
+        for (let forum of forums) {
+            // locate the parent
+            let parenti = 0;
+            for (; parenti < senddat.length; parenti++) {
+                if (forum.parent == senddat[parenti].id) {
+                    break;
                 }
             }
-
-            // sort everything
-            senddat.sort(function(a, b) { return a.priority - b.priority; });
-            for (let group of senddat) {
-                group.forums.sort(function(a, b) { return a.priority - b.priority; });
-                for (let forum of group.forums) {
-                    if (forum.subforums)
-                        forum.subforums.sort(function(a, b) { return a.priority - b.priority; });
-                }
+            if (parenti < senddat.length) { // found the parent
+                delete forum.parent;
+                if (forum.subforums.length == 0)
+                    delete forum.subforums;
+                senddat[parenti].forums.push(forum);
             }
+        }
 
-            res.send(senddat);
-        });
-    }).on('error', quickErrorReturn)
-};
+        // sort everything
+        senddat.sort(function(a, b) { return a.priority - b.priority; });
+        for (let group of senddat) {
+            group.forums.sort(function(a, b) { return a.priority - b.priority; });
+            for (let forum of group.forums) {
+                if (forum.subforums)
+                    forum.subforums.sort(function(a, b) { return a.priority - b.priority; });
+            }
+        }
+
+        res.send(senddat);
+    }).catch(e => quickErrorReturn(e, res));
+}
 
 exports.getForumData = function(req, res) {
+    Promise.all([
+        request({
+            method: "GET",
+            uri: urlstart + designdoc + "/_view/forums-by-parent",
+            headers: { Authorization: totalAuthString },
+            json: true
+        }),
+        request({
+            method: "GET",
+            uri: urlstart + designdoc + '/_view/threads-by-parent?key="' + req.params.forum + '"',
+            headers: { Authorization: totalAuthString },
+            json: true
+        })
+    ]).then(promisevalues => {
+        let [jfData, jdat] = promisevalues;
+        let allforums = {};
+        let returnData = { id: req.params.forum, threads: [], subforums: [], crumbs: [] };
+
+        for (let row of jfData.rows) {
+            let value = row.value;
+            allforums[value.id] = value;
+            if (value.id == returnData.id) {
+                value.title = returnData.title;
+            }
+            if (value.parent == returnData.id) {
+                returnData.subforums.push({ 
+                    title: value.title,
+                    id: value.id,
+                    posts: value.posts,
+                    threadnum: value.threadnum,
+                    subforums: []
+                });
+            }
+        }
+
+        // search through each subforum and each other forum, see if they are related
+        for (let sub of returnData.subforums) {
+            let keys = Object.keys(allforums);
+            for (let key of keys) {
+                if (allforums[key].parent == sub.id) {
+                    sub.subforums.push({
+                        id: key,
+                        title: allforums[key].title
+                    });
+                }
+            }
+            // delete empty arrays
+            if (sub.subforums.length == 0) {
+                delete sub.subforums;
+            }
+        }
+        if (returnData.subforums.length == 0) {
+            delete returnData.subforums;
+        }
+
+        // add all crumbs
+        if (!allforums[returnData.id].top) {
+            returnData.crumbs.push({
+                id: allforums[returnData.id].parent,
+                title: allforums[allforums[returnData.id].parent].title
+            });
+            while (!allforums[returnData.crumbs[0].id].top) {
+                returnData.crumbs.unset({
+                    id: allforums[returnData.crumbs[0].id].parent,
+                    title: allforums[allforums[returnData.crumbs[0].id].parent].title
+                });
+            }
+        }
+
+        for (let row of jdat.rows) {
+            let value = row.value;
+            returnData.threads.push({
+                title: value.title,
+                id: value.id,
+                posts: value.posts,
+                views: value.views,
+                last: value.last,
+                date: value.date
+            })
+        }
+        // sort all subforums, sub-subforums, and threads
+        if (returnData.subforums) {
+            returnData.subforums.sort(function(a, b) { return a.priority = b.priority; });
+            for (let sub of returnData.subforums) {
+                if (sub.subforums) {
+                    sub.sort(function(a, b) { return a.priority = b.priority; });
+                }
+            }
+        }
+        returnData.threads.sort(function(a, b) { return new Date(b.date).getTime() - new Date(a.date).getTime()});
+
+        res.send(returnData);
+
+    }).catch(e => quickErrorReturn(e, res));
+}
+
+exports.agetForumData = function(req, res) {
     let getsuperurl = urlstart + designdoc + "/_view/forums-by-parent";
     let geturl = urlstart + designdoc + "/_view/threads-by-parent";
 
@@ -199,12 +297,50 @@ exports.getForumData = function(req, res) {
             }).on('error', quickErrorReturn);
         })
     }).on('error', quickErrorReturn);
+}
+
+exports.getThreadData = function(req, res) {
+    let getsuperurl = urlstart + designdoc + "/_view/forums-by-parent";
+    let geturl = urlstart + designdoc + "/_view/posts-by-thread-and-date";
+    // TODO: figure out some way to include page number and number of posts
+    //          might have to make a seperate call for the thread 
+    let querstr = '?startkey=["' + req.params.thread + '", "0"]&endkey=["' + req.params.thread + '", "9999-99-99T99:99:99.999Z"]&limit=41'
+    http.get(geturl + querstr, {auth: authstring}, rsp => {
+        let rtData = '';
+        rsp.on('data', d => rtData += d);
+        rsp.on('end', () => {
+            let jtData = JSON.parse(rtData);
+
+            // we have here a thread and some posts, organized by date
+            // the thread is first
+            let returnData = {
+                id: req.params.thread,
+                title: jtData.rows[0].value.title,
+                isGame: jtData.rows[0].value.isGame,
+                postNum: jtData.rows[0].value.posts,
+                posts: []
+            };
+            for (let row of jtData.rows) {
+                let pdat = {
+                    header: row.value.header,
+                    textBlock: row.value.textBlock
+                };
+                if (row.value.edit)
+                    pdat.edit = row.value.edit;
+                
+                returnData.posts.push(pdat);
+            }
+
+            // TODO: get crumbs
 
 
 
-    // get all stats under each thread found
+            res.send(returnData);
+            console.log(returnData);
+            
+        });
 
-    // organize threads by last post date
+    }).on('error', quickErrorReturn);
 }
 
 exports.setThreadStats = function(req, res) {
