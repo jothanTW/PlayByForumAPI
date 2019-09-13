@@ -9,8 +9,10 @@ app.use(cors());
 let groupRoutes = require("./routes/groups");
 let forumRoutes = require("./routes/forum");
 let threadRoutes = require("./routes/thread");
+let adminRoutes = require("./routes/admin");
 let defaultRoute = require("./routes/default");
 
+adminRoutes(app);
 defaultRoute(app);
 groupRoutes(app);
 forumRoutes(app);
