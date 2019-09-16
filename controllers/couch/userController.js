@@ -2,21 +2,11 @@ let configs = require("../../config/config.js");
 let request = require("request-promise-native");
 let crypto = require("crypto");
 
+let utils = require("./controllerUtils.js");
+
 let userchecks = require("../../config/userInfoChecks");
 
-const urlstart = configs.configs.dburl + "/" + configs.configs.dbname;
-const designdoc = "/_design/forumdoc";
-const authstring = configs.configs.dbuser + ":" + configs.configs.dbpass;
-
-const totalAuthString = "Basic " + Buffer.from(authstring).toString("base64");
-
 const minSalt = 64;
-
-function quickErrorReturn(e, res) {
-    console.log(e.message);
-    // do something with the response
-    res.send('{"error": "An error occured between the server and the database."}');
-}
 
 exports.doSignUp = function(req, res) {
     // get the auth string, decode it, make sure everything matches up
@@ -49,15 +39,15 @@ exports.doSignUp = function(req, res) {
     // see if the user exists
     request({
         method: "GET",
-        uri: urlstart + designdoc + "/_view/user-by-name?key=\"" + authparams[0] + "\"",
-        headers: { Authorization: totalAuthString },
+        uri: utils.urlstart + utils.designdoc + "/_view/user-by-name?key=\"" + authparams[0] + "\"",
+        headers: { Authorization: utils.totalAuthString },
         json: true
     }).then(udat => {
         if (udat.rows.length > 0) {
             res.send({ error: "User already exists"});
         } else {
             // should have everything. put a new doc in the database
-            let len = minSalt;
+            let len = utils.minSalt;
             let salt = crypto.randomBytes(Math.ceil(len/2)).toString('hex').slice(0,len);
             let chash = crypto.createHmac('sha512', salt);
             chash.update(authparams[1]);
@@ -72,8 +62,8 @@ exports.doSignUp = function(req, res) {
             };
             request({
                 method: "POST",
-                uri: urlstart,
-                headers: { Authorization: totalAuthString, "Content-Type": "application/json" },
+                uri: utils.urlstart,
+                headers: { Authorization: utils.totalAuthString, "Content-Type": "application/json" },
                 body: JSON.stringify(newuser),
                 resolveWithFullResponse: true
             }).then(response => {
@@ -86,9 +76,9 @@ exports.doSignUp = function(req, res) {
                     }
                     res.send({ status: "Account created!" });
                 }
-            }).catch(e => quickErrorReturn(e, res));
+            }).catch(e => utils.quickErrorReturn(e, res));
         }
-    }).catch(e => quickErrorReturn(e, res));
+    }).catch(e => utils.quickErrorReturn(e, res));
     
 }
 
@@ -103,8 +93,8 @@ exports.doLogin = function(req, res) {
 
     request({
         method: "GET",
-        uri: urlstart + designdoc + "/_view/user-by-name?key=\"" + authparams[0] + "\"",
-        headers: { Authorization: totalAuthString },
+        uri: utils.urlstart + utils.designdoc + "/_view/user-by-name?key=\"" + authparams[0] + "\"",
+        headers: { Authorization: utils.totalAuthString },
         json: true
     }).then(udat => {
         if (udat.rows.length == 0) {
@@ -125,12 +115,12 @@ exports.doLogin = function(req, res) {
                 res.send({ error: "Invalid username or password"});
             }
         }
-    }).catch(e => quickErrorReturn(e, res));
+    }).catch(e => utils.quickErrorReturn(e, res));
 }
 
 exports.doLogout = function(req, res) {
     req.session.destroy(e => {
-        if(e) quickErrorReturn(e, res);
+        if(e) utils.quickErrorReturn(e, res);
         else {
             res.clearCookie('pbforum_sid');
             res.send({ status: "You have been logged out"});
@@ -142,6 +132,7 @@ exports.checkSession = function(req, res) {
     if (req.session.user) {
         res.send(req.session.user);
     } else {
+        res.clearCookie('pbforum_sid');
         res.send({ error: 'Not logged in'});
     }
 }

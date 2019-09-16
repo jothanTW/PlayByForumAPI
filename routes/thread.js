@@ -6,4 +6,7 @@ module.exports = function(app) {
 
     app.route('/thread/:thread')
         .post(threadController.makePost);
+
+    app.route('/thread/:thread/:post')
+        .put(threadController.editPost);
 };

@@ -2,6 +2,8 @@ let configs = require("../../config/config.js");
 let http = require("http");
 let request = require("request-promise-native");
 
+let utils = require("./controllerUtils");
+
 const urlstart = configs.configs.dburl + "/" + configs.configs.dbname;
 const designdoc = "/_design/forumdoc";
 const authstring = configs.configs.dbuser + ":" + configs.configs.dbpass;
@@ -39,7 +41,8 @@ function incrementThreadPosts(threadid) {
                     uri: urlstart + "/" + threaddbid,
                     headers: { Authorization: totalAuthString },
                     body: thread,
-                    json: true
+                    json: true,
+                    resolveWithFullResponse: true
                 }).then(response => {
                     if (response.statusCode == 409) {
                         // db conflict, retry from start
@@ -70,7 +73,7 @@ function incrementForumPosts(forumid) {
                     uri: urlstart + "/" + forumdbid,
                     headers: { Authorization: totalAuthString },
                     body: forum,
-                    json: true
+                    resolveWithFullResponse: true
                 }).then(response => {
                     if (response.statusCode == 409) {
                         // db conflict, retry from start
@@ -101,7 +104,7 @@ function incrementForumThreads(forumid) {
                     uri: urlstart + "/" + forumdbid,
                     headers: { Authorization: totalAuthString },
                     body: forum,
-                    json: true
+                    resolveWithFullResponse: true
                 }).then(response => {
                     if (response.statusCode == 409) {
                         // db conflict, retry from start
@@ -390,6 +393,8 @@ exports.makeThread = function(req, res) {
                             if (postresponse.statusCode > 300 || threadresponse.statusCode > 300) {
                                 res.send({ error: 'Thread creation could not be completed at this time'});
                             } else {
+                                incrementForumPosts(req.params.forum);
+                                incrementForumThreads(req.params.forum);
                                 res.send({status: "Success!", threadid: threadid});
                             }
                         }).catch(e => quickErrorReturn(e, res));
@@ -558,29 +563,46 @@ exports.makePost = function(req, res) {
                 }
             }
 
-            if (req.body.text.length > 10000) { //TODO: make this some kind of global or config
-                res.send({error: "Attached text is too long"});
-            } else {
-                // send that post!
-                request({
-                    method: "POST",
-                    uri: urlstart,
-                    headers: { Authorization: totalAuthString, "Content-Type": "application/json" },
-                    body: JSON.stringify(postdata),
-                    resolveWithFullResponse: true
-                }).then(response => {
-                    if (response.statusCode > 300) {
-                        res.send({ error: 'Post creation could not be completed at this time'});
+            request({
+                method: "GET",
+                uri: urlstart + designdoc + '/_view/doc-by-id?key="' + req.params.thread + '"',
+                headers: { Authorization: totalAuthString },
+                json: true
+            }).then(threads =>  {
+                let threadfound = {};
+                for (let row in threads.rows) {
+                    if (row.value.type == 'thread') threadfound = row.value;
+                }
+                if (threadfound.parent) {
+                    if (req.body.text.length > 10000) { //TODO: make this some kind of global or config
+                        res.send({error: "Attached text is too long"});
                     } else {
-                        postdata.status = "Post created!"
-                        // increment the thread post count
-                        incrementThreadPosts(req.params.thread);
-                        // can't do this until we have the parent     incrementForumPosts()
-                        // send back the post
-                        res.send(postdata);
+                        // send that post!
+                        request({
+                            method: "POST",
+                            uri: urlstart,
+                            headers: { Authorization: totalAuthString, "Content-Type": "application/json" },
+                            body: JSON.stringify(postdata),
+                            resolveWithFullResponse: true
+                        }).then(response => {
+                            if (response.statusCode > 300) {
+                                res.send({ error: 'Post creation could not be completed at this time'});
+                            } else {
+                                postdata.status = "Post created!"
+                                // increment the thread post count
+                                incrementThreadPosts(req.params.thread);
+                                incrementForumPosts(threadfound.parent);
+                                // send back the post
+                                res.send(postdata);
+                            }
+                        }).catch(e => quickErrorReturn(e, res));
                     }
-                }).catch(e => quickErrorReturn(e, res));
-            }
+                } else {
+                    res.send({error: "Specified thread does not exist"})
+                }
+            }).catch(e => quickErrorReturn(e, res));
+
+            
 
         } else {
             res.send({error: "Attached text must be a string object"});
@@ -675,4 +697,67 @@ exports.getThreadData = function(req, res) {
 
         res.send(returnData);
     }).catch(e => quickErrorReturn(e, res));
+}
+
+exports.editPost = function (req, res) {
+    if (!req.session.user) {
+        res.send({error: "You are not logged in!"});
+        return;
+    }
+    // check the new post stats
+    if (!req.body.textBlock || !req.body.textBlock.text || typeof req.body.textBlock.text != "string") {
+        res.send({error: "missing text attribute in request body"});
+        return;
+    }
+
+    if (req.body.textBlock.text.length > 10000) {
+        res.send({ error: "Too many characters in post"});
+        return;
+    }
+
+    // we've been given a post number, but we could also possibly carry the database's internal id for every post
+    let posti = req.params.post - 1;
+    request({
+        method: "GET",
+        uri: utils.urlstart + utils.designdoc + '/_view/posts-by-thread-and-date?startkey=["' + req.params.thread + '", "0"]&endkey=["' + req.params.thread + '", "9999-99-99T99:99:99.999Z"]&limit=1&skip=' + posti,
+        headers: { Authorization: totalAuthString },
+        json: true
+    }).then(postbody => {
+        if (postbody.rows.length < 1) {
+            res.send({error: "Post could not be found"});
+            return;
+        }
+        let editedpost = postbody.rows[0].value;
+        // TODO: Check user permissions
+        if (editedpost.header.name != req.session.user.name) {
+            res.send({error: "You lack permissions to edit this post"});
+            return;
+        }
+        if (editedpost.edit) {
+            editedpost.edit = {
+                original: editedpost.textBlock
+            }
+        }
+        editedpost.edit.date = new Date.toISOString();
+        editedpost.textBlock = req.body.textBlock;
+
+        let editid = editedpost._id;
+        delete editedpost._id;
+
+        request({
+            method: "PUT",
+            uri: urlstart + "/" + editid,
+            headers: { Authorization: totalAuthString },
+            body: JSON.stringify(editedpost),
+            resolveWithFullResponse: true
+        }).then(response => {
+            if (response.statusCode >= 400) {
+                console.log(response);
+                res.send({error: "An error occured between the server and the database"});
+            } else {
+                res.send({status: "Edit success!"});
+            }
+        }).catch(e => console.log(e));
+
+    }).catch(e => utils.quickErrorReturn(e, res));
 }
