@@ -3,4 +3,7 @@ module.exports = function(app) {
   
     app.route('/forum/:forum/:page?')
         .get(forumController.getForumData);
+
+    app.route('/forum/:forum')
+        .post(forumController.makeThread);
 };

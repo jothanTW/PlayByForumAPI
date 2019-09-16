@@ -8,10 +8,109 @@ const authstring = configs.configs.dbuser + ":" + configs.configs.dbpass;
 
 const totalAuthString = "Basic " + Buffer.from(authstring).toString("base64");
 
+let testTitleRegex = /[^a-z0-9!?%$#@&*-_/\\ ]/gi
+
 function quickErrorReturn(e, res) {
-    console.log(e.message);
+    console.log(e);
     // do something with the response
     res.send('{"error": "An error occured between the server and the database."}');
+}
+
+function makeKebab(str) {
+    return str.replace(/\s+/g, '-').replace(/[?&%$#@^*/\\]/,'').toLowerCase();
+}
+
+function incrementThreadPosts(threadid) {
+    // get the thread, send it back with posts + 1, retry function if conflict
+    request({
+        method: "GET",
+        uri: urlstart + designdoc + '/_view/doc-by-id?key="' + threadid + '"',
+        headers: { Authorization: totalAuthString },
+        json: true
+    }).then(doc =>{
+        for (let row of doc.rows) {
+            if (row.value.type = "thread") {
+                let thread = Object.assign({}, row.value);
+                let threaddbid = thread._id;
+                delete thread._id;
+                thread.posts++;
+                request({
+                    method: "PUT",
+                    uri: urlstart + "/" + threaddbid,
+                    headers: { Authorization: totalAuthString },
+                    body: thread,
+                    json: true
+                }).then(response => {
+                    if (response.statusCode == 409) {
+                        // db conflict, retry from start
+                        incrementThreadPosts(threadid);
+                    }
+                }).catch(e => console.log(e));
+            }
+        }
+    }).catch(e => console.log(e));
+}
+
+function incrementForumPosts(forumid) {
+    // get the thread, send it back with posts + 1, retry function if conflict
+    request({
+        method: "GET",
+        uri: urlstart + designdoc + '/_view/doc-by-id?key="' + forumid + '"',
+        headers: { Authorization: totalAuthString },
+        json: true
+    }).then(doc =>{
+        for (let row of doc.rows) {
+            if (row.value.type = "forum") {
+                let forum = Object.assign({}, row.value);
+                let forumdbid = forum._id;
+                delete forum._id;
+                forum.posts++;
+                request({
+                    method: "PUT",
+                    uri: urlstart + "/" + forumdbid,
+                    headers: { Authorization: totalAuthString },
+                    body: forum,
+                    json: true
+                }).then(response => {
+                    if (response.statusCode == 409) {
+                        // db conflict, retry from start
+                        incrementForumPosts(forumid);
+                    }
+                }).catch(e => console.log(e));
+            }
+        }
+    }).catch(e => console.log(e));
+}
+
+function incrementForumThreads(forumid) {
+    // get the thread, send it back with posts + 1, retry function if conflict
+    request({
+        method: "GET",
+        uri: urlstart + designdoc + '/_view/doc-by-id?key="' + forumid + '"',
+        headers: { Authorization: totalAuthString },
+        json: true
+    }).then(doc =>{
+        for (let row of doc.rows) {
+            if (row.value.type = "forum") {
+                let forum = Object.assign({}, row.value);
+                let forumdbid = forum._id;
+                delete forum._id;
+                forum.threadNum++;
+                request({
+                    method: "PUT",
+                    uri: urlstart + "/" + forumdbid,
+                    headers: { Authorization: totalAuthString },
+                    body: forum,
+                    json: true
+                }).then(response => {
+                    if (response.statusCode == 409) {
+                        // db conflict, retry from start
+                        incrementForumThreads(forumid);
+                    }
+                }).catch(e => console.log(e));
+            }
+        }
+    }).catch(e => console.log(e));
 }
 
 exports.getGroupsData = function(req, res) {
@@ -123,7 +222,7 @@ exports.getForumData = function(req, res) {
             let value = row.value;
             allforums[value.id] = value;
             if (value.id == returnData.id) {
-                value.title = returnData.title;
+                returnData.title = value.title;
             }
             if (value.parent == returnData.id) {
                 returnData.subforums.push({ 
@@ -197,150 +296,115 @@ exports.getForumData = function(req, res) {
     }).catch(e => quickErrorReturn(e, res));
 }
 
-exports.agetForumData = function(req, res) {
-    let getsuperurl = urlstart + designdoc + "/_view/forums-by-parent";
-    let geturl = urlstart + designdoc + "/_view/threads-by-parent";
-
-    // get the full forum list to build the crumbs and subforums
-    http.get(getsuperurl, {auth: authstring}, resp => {
-        let rfData = '';
-        resp.on('data', d => rfData += d);
-        resp.on('end', () => {
-            let jfData = JSON.parse(rfData);
-
-            let allforums = {};
-            let returnData = { id: req.params.forum, threads: [], subforums: [], crumbs: [] };
-
-            for (let row of jfData.rows) {
-                let value = row.value;
-                allforums[value.id] = value;
-                if (value.id == returnData.id) {
-                    value.title = returnData.title;
+exports.makeThread = function(req, res) {
+    // check the user, check title and post formats, build thread and post objects, add both
+    if (req.session.user) {
+        if (req.body && req.body.text && typeof req.body.text == "string" && req.body.text.length > 0) {
+            if (req.body.title && typeof req.body.title == "string" && req.body.title.length > 0) {
+                if (testTitleRegex.test(req.body.title)) {
+                    res.send({error: "Invalid characters in title"});
+                    return;
                 }
-                if (value.parent == returnData.id) {
-                    value.subforums.push({ 
-                        title: value.title,
-                        id: value.id,
-                        posts: value.posts,
-                        threadnum: value.threadnum,
-                        subforums: []
-                    });
+                // TODO: verify forum exists
+                let threadid = makeKebab(req.body.title);
+                let thisTime = new Date().toISOString();
+                console.log(threadid);
+                let threaddata = {
+                    type: "thread",
+                    parent: req.params.forum,
+                    title: req.body.title,
+                    id: threadid,
+                    user: req.session.user.name,
+                    posts: 1,
+                    views: 1,
+                    last: req.session.user.name,
+                    date: thisTime
                 }
-            }
-
-            // search through each subforum and each other forum, see if they are related
-            for (let sub of returnData.subforums) {
-                let keys = Object.keys(allforums);
-                for (let key of keys) {
-                    if (allforums[key].parent == sub.id) {
-                        sub.subforums.push({
-                            id: key,
-                            title: allforums[key].title
-                        });
+                let postdata = {
+                    type: "post",
+                    parent: threadid,
+                    header: {
+                        name: req.session.user.name,
+                        date: thisTime
+                    }, 
+                    textBlock: {
+                        text: req.body.text
                     }
                 }
-                // delete empty arrays
-                if (sub.subforums.length == 0) {
-                    delete sub.subforums;
-                }
-            }
-            if (returnData.subforums.length == 0) {
-                delete returnData.subforums;
-            }
 
-            // add all crumbs
-            if (!allforums[returnData.id].top) {
-                returnData.crumbs.push({
-                    id: allforums[returnData.id].parent,
-                    title: allforums[allforums[returnData.id].parent].title
-                });
-                while (!allforums[returnData.crumbs[0].id].top) {
-                    returnData.crumbs.unset({
-                        id: allforums[returnData.crumbs[0].id].parent,
-                        title: allforums[allforums[returnData.crumbs[0].id].parent].title
-                    });
-                }
-            }
-
-             // get all threads under parent
-            let qstr = '?key="' + req.params.forum + '"';
-            http.get(geturl + qstr, {auth: authstring}, rsp => {
-                let rdat = '';
-                rsp.on('data', d => rdat += d);
-                rsp.on('end', () => {
-                    let jdat = JSON.parse(rdat);
-
-                    for (let row of jdat.rows) {
-                        let value = row.value;
-                        returnData.threads.push({
-                            title: value.title,
-                            id: value.id,
-                            posts: value.posts,
-                            views: value.views,
-                            last: value.last,
-                            date: value.date
-                        })
+                // check if the parent forum exists and the thread id doesn't
+                Promise.all([
+                    request({
+                        method: "GET",
+                        uri: urlstart + designdoc + '/_view/doc-by-id?key="' + threadid + '"',
+                        headers: { Authorization: totalAuthString },
+                        json: true
+                    }),
+                    request({
+                        method: "GET",
+                        uri: urlstart + designdoc + '/_view/doc-by-id?key="' + req.params.forum + '"',
+                        headers: { Authorization: totalAuthString },
+                        json: true
+                    })
+                ]).then(values => {
+                    console.log(values);
+                    let [threaddocs, forumdocs] = values;
+                    let threadexists = false;
+                    let forumexists = false;
+                    for (let row of threaddocs.rows) {
+                        if (row.value.type == 'thread') threadexists = true;
                     }
-                    // sort all subforums, sub-subforums, and threads
-                    if (returnData.subforums) {
-                        returnData.subforums.sort(function(a, b) { return a.priority = b.priority; });
-                        for (let sub of returnData.subforums) {
-                            if (sub.subforums) {
-                                sub.sort(function(a, b) { return a.priority = b.priority; });
+                    if (threadexists) {
+                        res.send({error: "That thread already exists!"});
+                        return;
+                    }
+                    for (let row of forumdocs.rows) {
+                        if (row.value.type == 'forum') forumexists = true;
+                    }
+                    if (!forumexists) {
+                        res.send({error: "Parent forum does not exist"});
+                        return;
+                    }
+
+                    if (req.body.text.length > 10000) { //TODO: make this some kind of global or config
+                        res.send({error: "Attached text is too long"});
+                    } else {
+                        // create the thread!
+                        Promise.all([
+                            request({
+                                method: "POST",
+                                uri: urlstart,
+                                headers: { Authorization: totalAuthString, "Content-Type": "application/json" },
+                                body: JSON.stringify(postdata),
+                                resolveWithFullResponse: true
+                            }),
+                            request({
+                                method: "POST",
+                                uri: urlstart,
+                                headers: { Authorization: totalAuthString, "Content-Type": "application/json" },
+                                body: JSON.stringify(threaddata),
+                                resolveWithFullResponse: true
+                            })
+                        ]).then(responses => {
+                            let [postresponse, threadresponse] = responses;
+                            if (postresponse.statusCode > 300 || threadresponse.statusCode > 300) {
+                                res.send({ error: 'Thread creation could not be completed at this time'});
+                            } else {
+                                res.send({status: "Success!", threadid: threadid});
                             }
-                        }
+                        }).catch(e => quickErrorReturn(e, res));
                     }
-                    returnData.threads.sort(function(a, b) { return new Date(b.date).getTime() - new Date(a.date).getTime()});
 
-                    res.send(returnData);
-                });
-            }).on('error', quickErrorReturn);
-        })
-    }).on('error', quickErrorReturn);
-}
-
-exports.getThreadData = function(req, res) {
-    let getsuperurl = urlstart + designdoc + "/_view/forums-by-parent";
-    let geturl = urlstart + designdoc + "/_view/posts-by-thread-and-date";
-    // TODO: figure out some way to include page number and number of posts
-    //          might have to make a seperate call for the thread 
-    let querstr = '?startkey=["' + req.params.thread + '", "0"]&endkey=["' + req.params.thread + '", "9999-99-99T99:99:99.999Z"]&limit=41'
-    http.get(geturl + querstr, {auth: authstring}, rsp => {
-        let rtData = '';
-        rsp.on('data', d => rtData += d);
-        rsp.on('end', () => {
-            let jtData = JSON.parse(rtData);
-
-            // we have here a thread and some posts, organized by date
-            // the thread is first
-            let returnData = {
-                id: req.params.thread,
-                title: jtData.rows[0].value.title,
-                isGame: jtData.rows[0].value.isGame,
-                postNum: jtData.rows[0].value.posts,
-                posts: []
-            };
-            for (let row of jtData.rows) {
-                let pdat = {
-                    header: row.value.header,
-                    textBlock: row.value.textBlock
-                };
-                if (row.value.edit)
-                    pdat.edit = row.value.edit;
-                
-                returnData.posts.push(pdat);
+                }).catch(e => quickErrorReturn(e,res));
+            } else {
+                res.send({error: "Attached title must be a string object"});
             }
-
-            // TODO: get crumbs
-
-
-
-            res.send(returnData);
-            console.log(returnData);
-            
-        });
-
-    }).on('error', quickErrorReturn);
+        } else {
+            res.send({error: "Attached text must be a string object"});
+        }
+    } else {
+        res.send({ error: "You are not logged in!"})
+    }
 }
 
 exports.setThreadStats = function(req, res) {
@@ -474,4 +538,141 @@ exports.setForumStats = function(req, res) {
             }).on('error', quickErrorReturn);
         });
     }).on('error', quickErrorReturn);
+}
+
+exports.makePost = function(req, res) {
+    // check the user, check some post formats, build post object, add to db
+    if (req.session.user) {
+        // TODO: Verify thread exists
+        if (req.body && req.body.text && typeof req.body.text == "string" && req.body.text.length > 0) {
+            // we have been given a user and we're assumed to have a date available, which is all we need for the header  
+            let postdata = {
+                type: "post",
+                parent: req.params.thread,
+                header: {
+                    name: req.session.user.name,
+                    date: new Date().toISOString()
+                }, 
+                textBlock: {
+                    text: req.body.text
+                }
+            }
+
+            if (req.body.text.length > 10000) { //TODO: make this some kind of global or config
+                res.send({error: "Attached text is too long"});
+            } else {
+                // send that post!
+                request({
+                    method: "POST",
+                    uri: urlstart,
+                    headers: { Authorization: totalAuthString, "Content-Type": "application/json" },
+                    body: JSON.stringify(postdata),
+                    resolveWithFullResponse: true
+                }).then(response => {
+                    if (response.statusCode > 300) {
+                        res.send({ error: 'Post creation could not be completed at this time'});
+                    } else {
+                        postdata.status = "Post created!"
+                        // increment the thread post count
+                        incrementThreadPosts(req.params.thread);
+                        // can't do this until we have the parent     incrementForumPosts()
+                        // send back the post
+                        res.send(postdata);
+                    }
+                }).catch(e => quickErrorReturn(e, res));
+            }
+
+        } else {
+            res.send({error: "Attached text must be a string object"});
+        }
+
+    } else {
+        res.send({ error: "You are not logged in!"})
+    }
+}
+
+exports.getThreadData = function(req, res) {
+    // get this thread, its posts, and all forums (to build crumbs)
+    let pge = 1;
+    if (req.params.page) pge = req.params.page;
+    if (pge == "last")
+    {
+        // normally, get the last page
+        // I don't know how to do that right now
+        pge = 1;
+    }
+    let skipnum = 40 * (pge - 1);
+    if (skipnum < 0) skipnum = 0;
+    Promise.all([
+        request({
+            method: "GET",
+            uri: urlstart + designdoc + '/_view/doc-by-id?key="' + req.params.thread + '"',
+            headers: { Authorization: totalAuthString },
+            json: true
+        }),
+        request({
+            method: "GET",
+            uri: urlstart + designdoc + '/_view/posts-by-thread-and-date?startkey=["' + req.params.thread + '", "0"]&endkey=["' + req.params.thread + '", "9999-99-99T99:99:99.999Z"]&limit=40&skip=' + skipnum,
+            headers: { Authorization: totalAuthString },
+            json: true
+        }),
+        request({
+            method: "GET",
+            uri: urlstart + designdoc + "/_view/forums-by-parent",
+            headers: { Authorization: totalAuthString },
+            json: true
+        })
+    ]).then(promisevalues => {
+        let [threads, posts, forums] = promisevalues;
+        let thread = threads.rows[0].value;
+        let returnData = {
+            id: req.params.thread,
+            title: thread.title,
+            isGame: thread.isGame,
+            postNum: thread.posts,
+            posts: [],
+            crumbs: []
+        }
+        for (let row of posts.rows) {
+            let pdat = {
+                header: row.value.header,
+                textBlock: row.value.textBlock
+            };
+            if (row.value.edit)
+                pdat.edit = row.value.edit;
+            
+            returnData.posts.push(pdat);
+        }
+
+        let lastCrumb = {};
+
+        for (let row of forums.rows) {
+            if (row.value.id == thread.parent) {
+                lastCrumb = row.value;
+                returnData.crumbs.push({
+                    title: row.value.title,
+                    id: row.value.id
+                })
+            }
+        }
+
+        let maxcrumbs = 10;
+
+        while (!lastCrumb.top && maxcrumbs > 0) {
+            for (let row of forums.rows) {
+                if (row.value.id == lastCrumb.parent) {
+                    lastCrumb = row.value;
+                    maxcrumbs--;
+                    returnData.crumbs.unshift({
+                        title: row.value.title,
+                        id: row.value.id
+                    })
+                }
+            }
+        }
+
+        // TODO: get the posts's users and characters from the db, and build the headers properly
+
+        res.send(returnData);
+    }).catch(e => quickErrorReturn(e, res));
 }
