@@ -19,7 +19,7 @@ app.use(session({
     credentials: true,
     rolling: true,
     cookie: {
-        maxAge: 600000,
+        maxAge: 2147483647000, // lots
         sameSite: 'lax',
         httpOnly: false
     }

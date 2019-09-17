@@ -217,7 +217,6 @@ exports.makeThread = function(req, res) {
                 // TODO: verify forum exists
                 let threadid = makeKebab(req.body.title);
                 let thisTime = new Date().toISOString();
-                console.log(threadid);
                 let threaddata = {
                     type: "thread",
                     parent: req.params.forum,
@@ -256,7 +255,6 @@ exports.makeThread = function(req, res) {
                         json: true
                     })
                 ]).then(values => {
-                    console.log(values);
                     let [threaddocs, forumdocs] = values;
                     let threadexists = false;
                     let forumexists = false;
@@ -452,6 +450,7 @@ exports.setForumStats = function(req, res) {
 }
 
 exports.makePost = function(req, res) {
+    console.log("Making Post");
     // check the user, check some post formats, build post object, add to db
     if (req.session.user) {
         // TODO: Verify thread exists
@@ -476,7 +475,7 @@ exports.makePost = function(req, res) {
                 json: true
             }).then(threads =>  {
                 let threadfound = {};
-                console.log(threads);
+                
                 for (let row of threads.rows) {
                     if (row.value.type == 'thread') threadfound = row.value;
                 }
@@ -497,7 +496,7 @@ exports.makePost = function(req, res) {
                             } else {
                                 postdata.status = "Post created!"
                                 // increment the thread post count
-                                utils.incrementThreadPosts(req.params.thread);
+                                utils.incrementThreadPosts(req.params.thread, postdata.header.date, req.session.user.name);
                                 utils.incrementForumPosts(threadfound.parent);
                                 // send back the post
                                 res.send(postdata);
@@ -522,88 +521,113 @@ exports.makePost = function(req, res) {
 
 exports.getThreadData = function(req, res) {
     // get this thread, its posts, and all forums (to build crumbs)
-    let pge = 1;
-    if (req.params.page) pge = req.params.page;
-    if (pge == "last")
-    {
-        // normally, get the last page
-        // I don't know how to do that right now
-        pge = 1;
-    }
-    let skipnum = 40 * (pge - 1);
-    if (skipnum < 0) skipnum = 0;
-    Promise.all([
-        request({
-            method: "GET",
-            uri: urlstart + designdoc + '/_view/doc-by-id?key="' + req.params.thread + '"',
-            headers: { Authorization: totalAuthString },
-            json: true
-        }),
-        request({
-            method: "GET",
-            uri: urlstart + designdoc + '/_view/posts-by-thread-and-date?startkey=["' + req.params.thread + '", "0"]&endkey=["' + req.params.thread + '", "9999-99-99T99:99:99.999Z"]&limit=40&skip=' + skipnum,
-            headers: { Authorization: totalAuthString },
-            json: true
-        }),
-        request({
-            method: "GET",
-            uri: urlstart + designdoc + "/_view/forums-by-parent",
-            headers: { Authorization: totalAuthString },
-            json: true
-        })
-    ]).then(promisevalues => {
-        let [threads, posts, forums] = promisevalues;
-        let thread = threads.rows[0].value;
-        let returnData = {
-            id: req.params.thread,
-            title: thread.title,
-            isGame: thread.isGame,
-            postNum: thread.posts,
-            posts: [],
-            crumbs: []
-        }
-        for (let row of posts.rows) {
-            let pdat = {
-                header: row.value.header,
-                textBlock: row.value.textBlock
-            };
-            if (row.value.edit)
-                pdat.edit = row.value.edit;
+
+    // first, get the post counts
+    // if response has no rows, exit early- the thread does not exist for all intents
+    request({
+        method: "GET",
+        uri: utils.urlstart + utils.designdoc + '/_view/post-count?key="' + req.params.thread + '"',
+        headers: { Authorization: utils.totalAuthString },
+        json: true
+    }).then(countdata =>{
+        if (countdata.rows.length == 0) {
+            res.send({error: "Could not find specified thread"});
+            return;
             
-            returnData.posts.push(pdat);
+        } 
+
+        // increment the thread views
+        // maybe put something here to restrict spamming calls
+        // like check the last time this thread was viewed this session
+        utils.incrementThreadViews(req.params.thread);
+
+        let maxposts = countdata.rows[0].value;
+        let pge = 1;
+        if (req.params.page) pge = req.params.page;
+        if (pge == "last")
+        {
+            // calculate the last page
+
+            pge = Math.floor(maxposts / 40) + 1;
         }
-
-        let lastCrumb = {};
-
-        for (let row of forums.rows) {
-            if (row.value.id == thread.parent) {
-                lastCrumb = row.value;
-                returnData.crumbs.push({
-                    title: row.value.title,
-                    id: row.value.id
-                })
+        let skipnum = 40 * (pge - 1);
+        if (skipnum < 0) skipnum = 0;
+        Promise.all([
+            request({
+                method: "GET",
+                uri: urlstart + designdoc + '/_view/doc-by-id?key="' + req.params.thread + '"',
+                headers: { Authorization: totalAuthString },
+                json: true
+            }),
+            request({
+                method: "GET",
+                uri: urlstart + designdoc + '/_view/posts-by-thread-and-date?startkey=["' + req.params.thread + '", "0"]&endkey=["' + req.params.thread + '", "9999-99-99T99:99:99.999Z"]&limit=40&skip=' + skipnum,
+                headers: { Authorization: totalAuthString },
+                json: true
+            }),
+            request({
+                method: "GET",
+                uri: urlstart + designdoc + "/_view/forums-by-parent",
+                headers: { Authorization: totalAuthString },
+                json: true
+            })
+        ]).then(promisevalues => {
+            let [threads, posts, forums] = promisevalues;
+            let thread = threads.rows[0].value;
+            let returnData = {
+                id: req.params.thread,
+                title: thread.title,
+                isGame: thread.isGame,
+                postNum: thread.posts,
+                posts: [],
+                crumbs: []
             }
-        }
+            for (let row of posts.rows) {
+                let pdat = {
+                    header: row.value.header,
+                    textBlock: row.value.textBlock
+                };
+                if (row.value.edit)
+                    pdat.edit = row.value.edit;
+                
+                returnData.posts.push(pdat);
+            }
 
-        let maxcrumbs = 10;
+            let lastCrumb = {};
 
-        while (!lastCrumb.top && maxcrumbs > 0) {
             for (let row of forums.rows) {
-                if (row.value.id == lastCrumb.parent) {
+                if (row.value.id == thread.parent) {
                     lastCrumb = row.value;
-                    maxcrumbs--;
-                    returnData.crumbs.unshift({
+                    returnData.crumbs.push({
                         title: row.value.title,
                         id: row.value.id
                     })
                 }
             }
-        }
 
-        // TODO: get the posts's users and characters from the db, and build the headers properly
+            let maxcrumbs = 10;
 
-        res.send(returnData);
-    }).catch(e => quickErrorReturn(e, res));
+            while (!lastCrumb.top && maxcrumbs > 0) {
+                for (let row of forums.rows) {
+                    if (row.value.id == lastCrumb.parent) {
+                        lastCrumb = row.value;
+                        maxcrumbs--;
+                        returnData.crumbs.unshift({
+                            title: row.value.title,
+                            id: row.value.id
+                        })
+                    }
+                }
+            }
+
+            // TODO: get the posts's users and characters from the db, and build the headers properly
+
+            res.send(returnData);
+        }).catch(e => quickErrorReturn(e, res));
+    }).catch (e => utils.quickErrorReturn(e, res));
+
+
+    
 }
 
 exports.editPost = function (req, res) {
