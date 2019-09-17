@@ -5,7 +5,7 @@ exports.urlstart = configs.configs.dburl + "/" + configs.configs.dbname;
 exports.designdoc = "/_design/forumdoc";
 exports.authstring = configs.configs.dbuser + ":" + configs.configs.dbpass;
 
-exports.totalAuthString = "Basic " + Buffer.from(authstring).toString("base64");
+exports.totalAuthString = "Basic " + Buffer.from(exports.authstring).toString("base64");
 
 let testTitleRegex = /[^a-z0-9!?%$#@&*-_/\\ ]/gi
 
@@ -25,8 +25,8 @@ exports.incrementThreadPosts = function(threadid) {
     // get the thread, send it back with posts + 1, retry function if conflict
     request({
         method: "GET",
-        uri: urlstart + designdoc + '/_view/doc-by-id?key="' + threadid + '"',
-        headers: { Authorization: totalAuthString },
+        uri: exports.urlstart + exports.designdoc + '/_view/doc-by-id?key="' + threadid + '"',
+        headers: { Authorization: exports.totalAuthString },
         json: true
     }).then(doc =>{
         for (let row of doc.rows) {
@@ -37,14 +37,14 @@ exports.incrementThreadPosts = function(threadid) {
                 thread.posts++;
                 request({
                     method: "PUT",
-                    uri: urlstart + "/" + threaddbid,
-                    headers: { Authorization: totalAuthString },
-                    body: thread,
+                    uri: exports.urlstart + "/" + threaddbid,
+                    headers: { Authorization: exports.totalAuthString },
+                    body: JSON.stringify(thread),
                     resolveWithFullResponse: true
                 }).then(response => {
                     if (response.statusCode == 409) {
                         // db conflict, retry from start
-                        incrementThreadPosts(threadid);
+                        exports.incrementThreadPosts(threadid);
                     }
                 }).catch(e => console.log(e));
             }
@@ -56,8 +56,8 @@ exports.incrementForumPosts = function(forumid) {
     // get the thread, send it back with posts + 1, retry function if conflict
     request({
         method: "GET",
-        uri: urlstart + designdoc + '/_view/doc-by-id?key="' + forumid + '"',
-        headers: { Authorization: totalAuthString },
+        uri: exports.urlstart + exports.designdoc + '/_view/doc-by-id?key="' + forumid + '"',
+        headers: { Authorization: exports.totalAuthString },
         json: true
     }).then(doc =>{
         for (let row of doc.rows) {
@@ -68,14 +68,14 @@ exports.incrementForumPosts = function(forumid) {
                 forum.posts++;
                 request({
                     method: "PUT",
-                    uri: urlstart + "/" + forumdbid,
-                    headers: { Authorization: totalAuthString },
-                    body: forum,
+                    uri: exports.urlstart + "/" + forumdbid,
+                    headers: { Authorization: exports.totalAuthString },
+                    body: JSON.stringify(forum),
                     resolveWithFullResponse: true
                 }).then(response => {
                     if (response.statusCode == 409) {
                         // db conflict, retry from start
-                        incrementForumPosts(forumid);
+                        exports.incrementForumPosts(forumid);
                     }
                 }).catch(e => console.log(e));
             }
@@ -87,8 +87,8 @@ exports.incrementForumThreads = function(forumid) {
     // get the thread, send it back with posts + 1, retry function if conflict
     request({
         method: "GET",
-        uri: urlstart + designdoc + '/_view/doc-by-id?key="' + forumid + '"',
-        headers: { Authorization: totalAuthString },
+        uri: exports.urlstart + exports.designdoc + '/_view/doc-by-id?key="' + forumid + '"',
+        headers: { Authorization: exports.totalAuthString },
         json: true
     }).then(doc =>{
         for (let row of doc.rows) {
@@ -99,14 +99,14 @@ exports.incrementForumThreads = function(forumid) {
                 forum.threadNum++;
                 request({
                     method: "PUT",
-                    uri: urlstart + "/" + forumdbid,
-                    headers: { Authorization: totalAuthString },
-                    body: forum,
+                    uri: exports.urlstart + "/" + forumdbid,
+                    headers: { Authorization: exports.totalAuthString },
+                    body: JSON.stringify(forum),
                     resolveWithFullResponse: true
                 }).then(response => {
                     if (response.statusCode == 409) {
                         // db conflict, retry from start
-                        incrementForumThreads(forumid);
+                        exports.incrementForumThreads(forumid);
                     }
                 }).catch(e => console.log(e));
             }

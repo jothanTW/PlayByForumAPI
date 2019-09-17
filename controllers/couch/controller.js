@@ -22,100 +22,6 @@ function makeKebab(str) {
     return str.replace(/\s+/g, '-').replace(/[?&%$#@^*/\\]/,'').toLowerCase();
 }
 
-function incrementThreadPosts(threadid) {
-    // get the thread, send it back with posts + 1, retry function if conflict
-    request({
-        method: "GET",
-        uri: urlstart + designdoc + '/_view/doc-by-id?key="' + threadid + '"',
-        headers: { Authorization: totalAuthString },
-        json: true
-    }).then(doc =>{
-        for (let row of doc.rows) {
-            if (row.value.type = "thread") {
-                let thread = Object.assign({}, row.value);
-                let threaddbid = thread._id;
-                delete thread._id;
-                thread.posts++;
-                request({
-                    method: "PUT",
-                    uri: urlstart + "/" + threaddbid,
-                    headers: { Authorization: totalAuthString },
-                    body: thread,
-                    json: true,
-                    resolveWithFullResponse: true
-                }).then(response => {
-                    if (response.statusCode == 409) {
-                        // db conflict, retry from start
-                        incrementThreadPosts(threadid);
-                    }
-                }).catch(e => console.log(e));
-            }
-        }
-    }).catch(e => console.log(e));
-}
-
-function incrementForumPosts(forumid) {
-    // get the thread, send it back with posts + 1, retry function if conflict
-    request({
-        method: "GET",
-        uri: urlstart + designdoc + '/_view/doc-by-id?key="' + forumid + '"',
-        headers: { Authorization: totalAuthString },
-        json: true
-    }).then(doc =>{
-        for (let row of doc.rows) {
-            if (row.value.type = "forum") {
-                let forum = Object.assign({}, row.value);
-                let forumdbid = forum._id;
-                delete forum._id;
-                forum.posts++;
-                request({
-                    method: "PUT",
-                    uri: urlstart + "/" + forumdbid,
-                    headers: { Authorization: totalAuthString },
-                    body: forum,
-                    resolveWithFullResponse: true
-                }).then(response => {
-                    if (response.statusCode == 409) {
-                        // db conflict, retry from start
-                        incrementForumPosts(forumid);
-                    }
-                }).catch(e => console.log(e));
-            }
-        }
-    }).catch(e => console.log(e));
-}
-
-function incrementForumThreads(forumid) {
-    // get the thread, send it back with posts + 1, retry function if conflict
-    request({
-        method: "GET",
-        uri: urlstart + designdoc + '/_view/doc-by-id?key="' + forumid + '"',
-        headers: { Authorization: totalAuthString },
-        json: true
-    }).then(doc =>{
-        for (let row of doc.rows) {
-            if (row.value.type = "forum") {
-                let forum = Object.assign({}, row.value);
-                let forumdbid = forum._id;
-                delete forum._id;
-                forum.threadNum++;
-                request({
-                    method: "PUT",
-                    uri: urlstart + "/" + forumdbid,
-                    headers: { Authorization: totalAuthString },
-                    body: forum,
-                    resolveWithFullResponse: true
-                }).then(response => {
-                    if (response.statusCode == 409) {
-                        // db conflict, retry from start
-                        incrementForumThreads(forumid);
-                    }
-                }).catch(e => console.log(e));
-            }
-        }
-    }).catch(e => console.log(e));
-}
-
 exports.getGroupsData = function(req, res) {
     let geturl = urlstart + designdoc + "/_view/groups-and-forums";
     request({
@@ -393,8 +299,8 @@ exports.makeThread = function(req, res) {
                             if (postresponse.statusCode > 300 || threadresponse.statusCode > 300) {
                                 res.send({ error: 'Thread creation could not be completed at this time'});
                             } else {
-                                incrementForumPosts(req.params.forum);
-                                incrementForumThreads(req.params.forum);
+                                utils.incrementForumPosts(req.params.forum);
+                                utils.incrementForumThreads(req.params.forum);
                                 res.send({status: "Success!", threadid: threadid});
                             }
                         }).catch(e => quickErrorReturn(e, res));
@@ -570,7 +476,8 @@ exports.makePost = function(req, res) {
                 json: true
             }).then(threads =>  {
                 let threadfound = {};
-                for (let row in threads.rows) {
+                console.log(threads);
+                for (let row of threads.rows) {
                     if (row.value.type == 'thread') threadfound = row.value;
                 }
                 if (threadfound.parent) {
@@ -590,8 +497,8 @@ exports.makePost = function(req, res) {
                             } else {
                                 postdata.status = "Post created!"
                                 // increment the thread post count
-                                incrementThreadPosts(req.params.thread);
-                                incrementForumPosts(threadfound.parent);
+                                utils.incrementThreadPosts(req.params.thread);
+                                utils.incrementForumPosts(threadfound.parent);
                                 // send back the post
                                 res.send(postdata);
                             }
@@ -733,12 +640,12 @@ exports.editPost = function (req, res) {
             res.send({error: "You lack permissions to edit this post"});
             return;
         }
-        if (editedpost.edit) {
+        if (!editedpost.edit) {
             editedpost.edit = {
                 original: editedpost.textBlock
             }
         }
-        editedpost.edit.date = new Date.toISOString();
+        editedpost.edit.date = new Date().toISOString();
         editedpost.textBlock = req.body.textBlock;
 
         let editid = editedpost._id;
