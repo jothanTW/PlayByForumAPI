@@ -6,3 +6,8 @@ exports.getData = function(req, res) {
         // need to do error handling
     });
 };
+
+exports.getHead = function(req, res) {
+    // add more headers if needed
+    res.send();
+}

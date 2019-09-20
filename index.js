@@ -1,10 +1,12 @@
-var express = require("express"),
+let express = require("express"),
     app = express(),
     port = process.env.PORT || 3000;
 
-var session = require('express-session');
-var bodyparser = require('body-parser')
+let session = require('express-session');
+let bodyparser = require('body-parser');
 app.use(bodyparser.json());
+
+let https = require('https');
     
 let cors = require('cors');
 app.use(cors({
@@ -19,7 +21,7 @@ app.use(session({
     credentials: true,
     rolling: true,
     cookie: {
-        maxAge: 2147483647000, // lots
+        maxAge: 31536000000, // ~one year
         sameSite: 'lax',
         httpOnly: false
     }
@@ -31,6 +33,7 @@ let forumRoutes = require("./routes/forum");
 let threadRoutes = require("./routes/thread");
 let adminRoutes = require("./routes/admin");
 let defaultRoute = require("./routes/default");
+let characterRoute = require("./routes/characters");
 
 adminRoutes(app);
 defaultRoute(app);
@@ -38,6 +41,7 @@ loginRoutes(app);
 groupRoutes(app);
 forumRoutes(app);
 threadRoutes(app);
+characterRoute(app);
 
 
 app.listen(port);

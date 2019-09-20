@@ -214,6 +214,8 @@ exports.makeThread = function(req, res) {
                     res.send({error: "Invalid characters in title"});
                     return;
                 }
+                let isgamethread = false;
+                if (req.body.isGame) isgamethread = true;
                 // TODO: verify forum exists
                 let threadid = makeKebab(req.body.title);
                 let thisTime = new Date().toISOString();
@@ -226,7 +228,8 @@ exports.makeThread = function(req, res) {
                     posts: 1,
                     views: 1,
                     last: req.session.user.name,
-                    date: thisTime
+                    date: thisTime,
+                    isGame: isgamethread
                 }
                 let postdata = {
                     type: "post",
@@ -468,6 +471,23 @@ exports.makePost = function(req, res) {
                 }
             }
 
+            if (req.body.alias) {
+                if (typeof req.body.alias != "string") {
+                    res.send({error: "alias is not a string!"});
+                } else if (req.body.alias.length > 0) {
+                    postdata.header.alias = req.body.alias;
+                }
+            }
+
+            if (req.body.ooc && typeof req.body.ooc != "string") {
+                res.send({error: "OOC text is not a string!"});
+                return;
+            }
+
+            if (req.body.ooc) {
+                postdata.textBlock.ooc = req.body.ooc;
+            }
+
             request({
                 method: "GET",
                 uri: urlstart + designdoc + '/_view/doc-by-id?key="' + req.params.thread + '"',
@@ -582,7 +602,14 @@ exports.getThreadData = function(req, res) {
                 posts: [],
                 crumbs: []
             }
+            // build a list of users
+            let userlist = [];
+            let characterlist = [];
             for (let row of posts.rows) {
+                if (!userlist.includes(row.value.header.name)) 
+                    userlist.push(row.value.header.name);
+                if (row.value.header.alias && !characterlist.includes(row.value.header.alias))
+                    characterlist.push('["' + row.value.header.name + '","' + row.value.header.alias + '"]');
                 let pdat = {
                     header: row.value.header,
                     textBlock: row.value.textBlock
@@ -621,8 +648,47 @@ exports.getThreadData = function(req, res) {
             }
 
             // TODO: get the posts's users and characters from the db, and build the headers properly
+            let usrString = '["' + userlist.join('","') + '"]';
+            let charString = '[' + characterlist.join(",") + ']';
+            Promise.all([
+                request({
+                    method: "GET",
+                    uri: utils.urlstart + utils.designdoc + '/_view/user-by-name?keys=' + usrString,
+                    headers: { Authorization: totalAuthString },
+                    json: true
+                }),
+                request({
+                    method: "GET",
+                    uri: utils.urlstart + utils.designdoc + '/_view/character-by-user-and-id?keys=' + charString,
+                    headers: { Authorization: totalAuthString },
+                    json: true
+                })
+            ]).then(userchars => {
+                let [userset, charset] = userchars;
+                // for now, just do the users
+                for (let post of returnData.posts) {
+                    if (post.header.alias) {
+                        for (let row of charset.rows) {
+                            if (row.value.id == post.header.alias) {
+                                post.header.title = row.value.title;
+                                post.header.icon = row.value.icon;
+                                post.header.char = row.value.name;
+                            }
+                        }
+                    } else {
+                        for (let row of userset.rows) {
+                            if (row.value.name == post.header.name) {
+                                post.header.title = row.value.title;
+                                post.header.icon = row.value.icon;
+                            }
+                        }
+                    }
+                }
+                
+                res.send(returnData);
+            }).catch(e => quickErrorReturn(e, res));
+            
 
-            res.send(returnData);
         }).catch(e => quickErrorReturn(e, res));
     }).catch (e => utils.quickErrorReturn(e, res));
 

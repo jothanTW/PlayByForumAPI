@@ -12,4 +12,10 @@ module.exports = function(app) {
     
     app.route('/user')
         .get(loginController.checkSession);
+
+    app.route('/icon/:file')
+        .get(loginController.getIconData)
+
+    app.route('/icon/:character?')
+        .put(loginController.putIcon);
 };
