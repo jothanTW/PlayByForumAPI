@@ -47,12 +47,12 @@ exports.incrementThreadPosts = function(threadid, newdate, lastposter) {
                     headers: { Authorization: exports.totalAuthString },
                     body: JSON.stringify(thread),
                     resolveWithFullResponse: true
-                }).then(response => {
-                    if (response.statusCode == 409) {
-                        // db conflict, retry from start
-                        exports.incrementThreadPosts(threadid, newdate);
-                    }
-                }).catch(e => console.log(e.message));
+                }).catch(e => {
+                    if (e.statusCode == 409)
+                        exports.incrementThreadPosts(threadid);
+                    else
+                        console.log("Error in Thread Posts Increment: " + e.message);
+                });
             }
         }
     }).catch(e => console.log(e.message));
@@ -78,12 +78,12 @@ exports.incrementForumPosts = function(forumid) {
                     headers: { Authorization: exports.totalAuthString },
                     body: JSON.stringify(forum),
                     resolveWithFullResponse: true
-                }).then(response => {
-                    if (response.statusCode == 409) {
-                        // db conflict, retry from start
+                }).catch(e => {
+                    if (e.statusCode == 409)
                         exports.incrementForumPosts(forumid);
-                    }
-                }).catch(e => console.log(e.message));
+                    else
+                        console.log("Error in Forum Posts Increment: " + e.message);
+                });
             }
         }
     }).catch(e => console.log(e.message));
@@ -109,19 +109,19 @@ exports.incrementThreadViews = function(threadid) {
                     headers: { Authorization: exports.totalAuthString },
                     body: JSON.stringify(thread),
                     resolveWithFullResponse: true
-                }).then(response => {
-                    if (response.statusCode == 409) {
-                        // db conflict, retry from start
-                        exports.incrementThreadViews(threadid, newdate);
-                    }
-                }).catch(e => console.log(e.message));
+                }).catch(e => {
+                    if (e.statusCode == 409)
+                        exports.incrementThreadViews(threadid);
+                    else
+                        console.log("Error in Thread View Increment: " + e.message);
+                });
             }
         }
     }).catch(e => console.log(e.message));
 }
 
 exports.incrementForumThreads = function(forumid) {
-    // get the thread, send it back with posts + 1, retry function if conflict
+    // get the forum, send it back with threads + 1, retry function if conflict
     request({
         method: "GET",
         uri: exports.urlstart + exports.designdoc + '/_view/doc-by-id?key="' + forumid + '"',
@@ -133,19 +133,19 @@ exports.incrementForumThreads = function(forumid) {
                 let forum = Object.assign({}, row.value);
                 let forumdbid = forum._id;
                 delete forum._id;
-                forum.threadNum++;
+                forum.threadnum++;
                 request({
                     method: "PUT",
                     uri: exports.urlstart + "/" + forumdbid,
                     headers: { Authorization: exports.totalAuthString },
                     body: JSON.stringify(forum),
                     resolveWithFullResponse: true
-                }).then(response => {
-                    if (response.statusCode == 409) {
-                        // db conflict, retry from start
+                }).catch(e => {
+                    if (e.statusCode == 409)
                         exports.incrementForumThreads(forumid);
-                    }
-                }).catch(e => console.log(e.message));
+                    else
+                        console.log("Error in Forum Thread Increment: " + e.message);
+                });
             }
         }
     }).catch(e => console.log(e.message));

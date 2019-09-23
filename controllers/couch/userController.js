@@ -147,11 +147,69 @@ exports.checkSession = function(req, res) {
 exports.getIconData = function(req, res) {
     // nothing fancy, just provide the specified file
     fs.readFile("./icons/" + req.params.file, (err, data) => {
-        if (err) res.send();
+        if (err) {
+            res.send();
+            return;
+        }
         let fileformat = filetype(data);
         res.set('Content-type', fileformat.mime);
         res.send(data);
     });
+}
+
+exports.getUserProfile = function(req, res) {
+    /*  {
+            username
+            usertitle
+            usericon
+            characters
+            posts
+            threads -- in the future, when I'm storing thread creator info
+        }*/  
+    Promise.all([
+        request({
+            method: "GET",
+            uri: utils.urlstart + utils.designdoc + "/_view/user-by-name?key=\"" + req.params.user + "\"",
+            headers: { Authorization: utils.totalAuthString },
+            json: true
+        }),
+        request({
+            method: "GET",
+            uri: utils.urlstart + utils.designdoc + "/_view/user-post-count?key=\"" + req.params.user + "\"",
+            headers: { Authorization: utils.totalAuthString },
+            json: true
+        }),
+        request({
+            method: "GET",
+            uri: utils.urlstart + utils.designdoc + "/_view/character-by-user?key=\"" + req.params.user + "\"",
+            headers: { Authorization: utils.totalAuthString },
+            json: true
+        })
+    ]).then(results => {
+        let [udat, pcount, cdat] = results;
+        let pcountactual = 0;
+        if (pcount.rows.length)
+            pcountactual = pcount.rows[0].value;
+        if (udat.rows.length) {
+            let userpdata = {
+                name: udat.rows[0].value.name,
+                icon: udat.rows[0].value.icon,
+                title: udat.rows[0].value.title,
+                postNum: pcountactual,
+                characters: []
+            }
+            for (let crow of cdat.rows) {
+                let character = Object.assign({}, crow.value);
+                delete character._id;
+                delete character._rev;
+                userpdata.characters.push(character);
+            }
+
+            res.send({status: 'Character Found', data: userpdata});
+        } else {
+            res.send({error: "Could not find user"});
+        }
+    }).catch(e => utils.quickErrorReturn(e, res));
 }
 
 function updateCharacterIcon(charid, iconname, chardata) {
@@ -167,13 +225,12 @@ function updateCharacterIcon(charid, iconname, chardata) {
             headers: { Authorization: utils.totalAuthString },
             body: JSON.stringify(char),
             resolveWithFullResponse: true
-        }).then(response => {
-            if (response.statusCode == 409) {
-                // db conflict, retry from start
-                // don't include "most recent" data, it's not most recent at all
+        }).catch(e => {
+            if (e.statusCode == 409)
                 updateCharacterIcon(charid, iconname);
-            }
-        }).catch(e => console.log(e.message));
+            else
+                console.log("Error in Character Icon update for " + charid + ": " + e.message);
+        });
     } else {
         request({
             method: "GET",
@@ -191,12 +248,12 @@ function updateCharacterIcon(charid, iconname, chardata) {
                     headers: { Authorization: utils.totalAuthString },
                     body: JSON.stringify(char),
                     resolveWithFullResponse: true
-                }).then(response => {
-                    if (response.statusCode == 409) {
-                        // db conflict, retry from start
+                }).catch(e => {
+                    if (e.statusCode == 409)
                         updateCharacterIcon(charid, iconname);
-                    }
-                }).catch(e => console.log(e.message));
+                    else
+                        console.log("Error in Character Icon update for " + charid + ": " + e.message);
+                });
             }
         }).catch(e => console.log(e.message));
     }
@@ -221,12 +278,12 @@ function updateUserIcon(username, iconname) {
                 headers: { Authorization: utils.totalAuthString },
                 body: JSON.stringify(user),
                 resolveWithFullResponse: true
-            }).then(response => {
-                if (response.statusCode == 409) {
-                    // db conflict, retry from start
+            }).catch(e => {
+                if (e.statusCode == 409)
                     updateUserIcon(username, iconname);
-                }
-            }).catch(e => console.log(e.message));
+                else
+                    console.log("Error in User Icon update for " + username + ": " + e.message);
+            });
         }
     }).catch(e => console.log(e.message));
 }
@@ -286,7 +343,7 @@ exports.putIcon = function(req, res) {
                         res.send({error: "Image upload failed on server-side"});
                     } else {
                         // Update the character info
-                        if (!doc.rows[0].value.icon) {
+                        if (doc.rows[0].value.icon != filename) {
                             updateCharacterIcon(doc.rows[0].value._id, filename, doc.rows[0].value);
                         }
 
@@ -307,7 +364,7 @@ exports.putIcon = function(req, res) {
                 } else {
                     // Update the user's info
 
-                    if (!req.session.user.icon) {// the file is overwritten per user/character each time
+                    if (req.session.user.icon != filename) {
                         req.session.user.icon = filename;
                         updateUserIcon(req.session.user.name, filename);
                     }
@@ -321,4 +378,59 @@ exports.putIcon = function(req, res) {
     } else {
         res.send({error: "You are not logged in!"});
     }
+}
+
+exports.editUser = function(req, res) {
+    // assume only the user can edit their info
+    // maybe later let admins do it too
+    if (!req.session.user || req.session.user.name != req.params.user) {
+        res.send({eror: "You do not have the permissions to edit this user"});
+        return;
+    }
+
+    request({
+        method: "GET",
+        uri: utils.urlstart + utils.designdoc + '/_view/user-by-name?key="' + req.session.user.name + '"',
+        headers: { Authorization: utils.totalAuthString },
+        json: true
+    }).then(doc =>{
+        for (let row of doc.rows) {
+            let user = Object.assign({}, row.value);
+            let userdbid = user._id;
+            delete user._id;
+            
+            // editable fields: 
+            //  title
+            //  uuuuuhhhh
+            //
+            //  never do name, do password ELSEWHERE, same w/ email
+
+            let doEdit = false;
+
+            if (req.body.title) {
+                if (typeof req.body.title == 'string') {
+                    user.title = req.body.title;
+                    doEdit = true;
+                } else {
+                    res.send({error: "Title must be a string object"});
+                    return;
+                }
+            }
+            // do any other changes here
+
+            if (!doEdit) {
+                res.send({error: "No edit fields provided"});
+                return;
+            }
+            request({
+                method: "PUT",
+                uri: utils.urlstart + "/" + userdbid,
+                headers: { Authorization: utils.totalAuthString },
+                body: JSON.stringify(user),
+                resolveWithFullResponse: true
+            }).then(response => {
+                res.send({status: "Edit successful"})
+            }).catch(e => utils.quickErrorReturn(e, res));
+        }
+    }).catch(e => console.log(e.message));
 }

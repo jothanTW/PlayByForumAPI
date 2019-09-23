@@ -707,6 +707,11 @@ exports.editPost = function (req, res) {
         return;
     }
 
+    if (req.body.alias && typeof req.body.alias != "string") {
+        res.send({error: "misformatted alias attribute"});
+        return;
+    }
+
     if (req.body.textBlock.text.length > 10000) {
         res.send({ error: "Too many characters in post"});
         return;
@@ -737,6 +742,9 @@ exports.editPost = function (req, res) {
         }
         editedpost.edit.date = new Date().toISOString();
         editedpost.textBlock = req.body.textBlock;
+        if (req.body.alias) {
+            editedpost.header.alias = req.body.alias; // maybe verify this? since this is an edit we might have time
+        }
 
         let editid = editedpost._id;
         delete editedpost._id;
@@ -754,7 +762,7 @@ exports.editPost = function (req, res) {
             } else {
                 res.send({status: "Edit success!"});
             }
-        }).catch(e => console.log(e));
+        }).catch(e => utils.quickErrorReturn(e, res));
 
     }).catch(e => utils.quickErrorReturn(e, res));
 }

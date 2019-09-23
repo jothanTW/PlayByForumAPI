@@ -18,4 +18,8 @@ module.exports = function(app) {
 
     app.route('/icon/:character?')
         .put(loginController.putIcon);
+    
+    app.route('/user/:user')
+        .get(loginController.getUserProfile)
+        .put(loginController.editUser);
 };
