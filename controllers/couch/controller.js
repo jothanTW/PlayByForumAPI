@@ -742,7 +742,8 @@ exports.editPost = function (req, res) {
         }
         editedpost.edit.date = new Date().toISOString();
         editedpost.textBlock = req.body.textBlock;
-        if (req.body.alias) {
+        if (req.body.alias != undefined) {
+
             editedpost.header.alias = req.body.alias; // maybe verify this? since this is an edit we might have time
         }
 
