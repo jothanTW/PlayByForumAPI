@@ -1,0 +1,12 @@
+{
+    "dburl": "Your Database URL",
+    "dbname": "Your Database Name",
+    "dbdoc": "CouchDB-Specific viewdoc",
+    "dbuser": "Your Database Username",
+    "dbpass": "Your Database Password",
+    "dbtype": "couch",
+    "maxCharsPerUser": 32,
+    "cert": "./certs/Your Server Certificate",
+    "certkey": "./certs/Your Server Key",
+    "cookiesecret": "Your Cookie Secret"
+}

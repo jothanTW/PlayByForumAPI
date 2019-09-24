@@ -1,21 +1,25 @@
-let express = require("express"),
-    app = express(),
-    port = process.env.PORT || 3000;
+let configs = require("./config/config");
+let fs = require("fs");
+
+let express = require("express");
+let restapp = express();
+let restport = 3000;
+let restportSec = 3443;
 
 let session = require('express-session');
 let bodyparser = require('body-parser');
-app.use(bodyparser.json());
+restapp.use(bodyparser.json());
 
 let https = require('https');
     
 let cors = require('cors');
-app.use(cors({
+restapp.use(cors({
     exposedHeaders: ['Set-Cookie'], credentials: true, origin: function (origin, callback) { callback(null, true)}
   }));
 
-app.use(session({
+  restapp.use(session({
     key: 'pbforum_sid',
-    secret: 'abigolsecret',
+    secret: configs.configs.cookiesecret,
     resave: false,
     saveUninitialized: false,
     credentials: true,
@@ -35,15 +39,25 @@ let adminRoutes = require("./routes/admin");
 let defaultRoute = require("./routes/default");
 let characterRoute = require("./routes/characters");
 
-adminRoutes(app);
-defaultRoute(app);
-loginRoutes(app);
-groupRoutes(app);
-forumRoutes(app);
-threadRoutes(app);
-characterRoute(app);
+adminRoutes(restapp);
+defaultRoute(restapp);
+loginRoutes(restapp);
+groupRoutes(restapp);
+forumRoutes(restapp);
+threadRoutes(restapp);
+characterRoute(restapp);
 
 
-app.listen(port);
+restapp.listen(restport);
 
-console.log('pbforum REST server now listening on: ' + port);
+console.log('pbforum REST server now listening on: ' + restport);
+
+try {
+    https.createServer({
+        key: fs.readFileSync(configs.configs.certkey),
+        cert: fs.readFileSync(configs.configs.cert)
+      }, restapp).listen(restportSec);
+      console.log("pbforum secure REST server now listening on: " + restportSec);
+} catch (e) {
+    console.warn("Could not start HTTPS REST service: " + e);
+}
