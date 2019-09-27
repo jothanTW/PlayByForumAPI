@@ -6,6 +6,8 @@ This project requires a **config.json** file to be placed in the ./config/ folde
 
 The backend opens ports on 3000 and 3443, one for http connections and one for https. The https connection looks for certificates and keys from the location given by the config file, which are generally expected in the certs folder, whose contents are excluded by gitignore. 
 
+This backend is also intended to support a static website, available on ports 8000 and 8443, though this is barely implemented. This backend uses the same controllers that the REST backend uses, and builds ejs pages to send to the user. URLs and pages are largely the same.
+
 ## Project setup
 ```
 npm install
