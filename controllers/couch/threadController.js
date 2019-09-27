@@ -148,6 +148,7 @@ exports.getThreadData = function(data, session, returndata) {
                 title: thread.title,
                 isGame: thread.isGame,
                 postNum: thread.posts,
+                owner: thread.user,
                 posts: [],
                 crumbs: []
             }
