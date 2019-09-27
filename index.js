@@ -31,13 +31,13 @@ restapp.use(cors({
     }
 }));
 
-let loginRoutes = require("./routes/login");
-let groupRoutes = require("./routes/groups");
-let forumRoutes = require("./routes/forum");
-let threadRoutes = require("./routes/thread");
-let adminRoutes = require("./routes/admin");
-let defaultRoute = require("./routes/default");
-let characterRoute = require("./routes/characters");
+let loginRoutes = require("./routes/api/login");
+let groupRoutes = require("./routes/api/groups");
+let forumRoutes = require("./routes/api/forum");
+let threadRoutes = require("./routes/api/thread");
+let adminRoutes = require("./routes/api/admin");
+let defaultRoute = require("./routes/api/default");
+let characterRoute = require("./routes/api/characters");
 
 adminRoutes(restapp);
 defaultRoute(restapp);

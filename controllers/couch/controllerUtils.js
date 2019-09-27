@@ -15,8 +15,26 @@ exports.quickErrorReturn = function(e, res) {
     res.send('{"error": "An error occured between the server and the database."}');
 }
 
+exports.quickErrorResponse = function(e, callback) {
+    console.log(e.message);
+    // do something with the response
+    callback({"error": "An error occured between the server and the database."});
+}
+
 exports.makeKebab = function(str) {
     return str.replace(/\s+/g, '-').replace(/[?&%$#@^*/\\]/,'').toLowerCase();
+}
+
+exports.createResponseFunction = function(func) {
+    return function(req, res) {
+        let data = Object.assign({}, req.body, req.params);
+        let session = req.session;
+        func(data, session, (returndata, cookieToClear) => {
+            if (cookieToClear)
+                res.clearCookie(cookieToClear);
+            res.send(returndata);
+        });
+    }
 }
 
 

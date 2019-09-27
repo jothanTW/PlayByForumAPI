@@ -11,32 +11,32 @@ let userchecks = require("../../config/userInfoChecks");
 
 const minSalt = 64;
 
-exports.doSignUp = function(data, session, returndata) {
+exports.doSignUp = function(req, res) {
     // get the auth string, decode it, make sure everything matches up
     let badReq = false;
-    if (!data || !data.uauth || !data.id || !data.email) {
-        returndata({ error: "Bad Request" });
+    if (!req.body || !req.body.uauth || !req.body.id || !req.body.email) {
+        res.send({ error: "Bad Request" });
         console.log(Object.keys(req));
         return;
     }
-    let astr = data.uauth;
+    let astr = req.body.uauth;
     let authparams = Buffer.from(astr, 'base64').toString().split(':');
-    if (authparams.length != 2 || authparams[0] != data.id) {
-        returndata({ error: "Bad Request" });
+    if (authparams.length != 2 || authparams[0] != req.body.id) {
+        res.send({ error: "Bad Request" });
         return;
     }
 
     let checkstr =  userchecks.checkUserName(authparams[0]);
     if (checkstr.length > 0) {
-        returndata({ error: checkstr });
+        res.send({ error: checkstr });
     }
     checkstr =  userchecks.checkPassword(authparams[1]);
     if (checkstr.length > 0) {
-        returndata({ error: checkstr });
+        res.send({ error: checkstr });
     }
-    checkstr =  userchecks.checkEmail(data.email);
+    checkstr =  userchecks.checkEmail(req.body.email);
     if (checkstr.length > 0) {
-        returndata({ error: checkstr });
+        res.send({ error: checkstr });
     }
 
     // see if the user exists
@@ -47,7 +47,7 @@ exports.doSignUp = function(data, session, returndata) {
         json: true
     }).then(udat => {
         if (udat.rows.length > 0) {
-            returndata({ error: "User already exists"});
+            res.send({ error: "User already exists"});
         } else {
             // should have everything. put a new doc in the database
             let len = utils.minSalt;
@@ -59,10 +59,9 @@ exports.doSignUp = function(data, session, returndata) {
                 name: authparams[0],
                 hash: hash,
                 salt: salt,
-                email: data.email,
+                email: req.body.email,
                 type: "user",
-                roles: [],
-                joindate: new Date().toISOString()
+                roles: []
             };
             request({
                 method: "POST",
@@ -72,27 +71,27 @@ exports.doSignUp = function(data, session, returndata) {
                 resolveWithFullResponse: true
             }).then(response => {
                 if (response.statusCode > 300) {
-                    returndata({ error: 'Account creation could not be completed at this time'});
+                    res.send({ error: 'Account creation could not be completed at this time'});
                 } else {
-                    session.user = {
+                    req.session.user = {
                         name: newuser.name,
                         roles: newuser.roles,
                         dbid: newuser._id
                     }
-                    returndata({ status: "Account created!" });
+                    res.send({ status: "Account created!" });
                 }
-            }).catch(e => utils.quickErrorResponse(e, returndata));
+            }).catch(e => utils.quickErrorReturn(e, res));
         }
-    }).catch(e => utils.quickErrorResponse(e, returndata));
+    }).catch(e => utils.quickErrorReturn(e, res));
     
 }
 
-exports.doLogin = function(data, session, returndata) {
+exports.doLogin = function(req, res) {
     // get the user, generate the hash from the salt, compare
-    let astr = data.uauth;
+    let astr = req.body.uauth;
     let authparams = Buffer.from(astr, 'base64').toString().split(':');
-    if (authparams.length != 2 || authparams[0] != data.id) {
-        returndata({ error: "Bad Request" });
+    if (authparams.length != 2 || authparams[0] != req.body.id) {
+        res.send({ error: "Bad Request" });
         return;
     }
 
@@ -103,7 +102,7 @@ exports.doLogin = function(data, session, returndata) {
         json: true
     }).then(udat => {
         if (udat.rows.length == 0) {
-            returndata({ error: "Invalid username or password"});
+            res.send({ error: "Invalid username or password"});
         } else {
             let userdata = udat.rows[0].value;
             let chash = crypto.createHmac('sha512', userdata.salt);
@@ -111,35 +110,37 @@ exports.doLogin = function(data, session, returndata) {
             let hash = chash.digest('hex');
             if (hash == userdata.hash) {
                 // good! save the user's session
-                session.user = {
+                req.session.user = {
                     name: userdata.name,
                     roles: userdata.roles,
                     dbid: userdata._id
                 }
                 if (userdata.icon)
-                    session.user.icon = userdata.icon;
-                returndata({ status: "GOOD", user: session.user});
+                    req.session.user.icon = userdata.icon;
+                res.send({ status: "GOOD", user: req.session.user});
             } else {
-                returndata({ error: "Invalid username or password"});
+                res.send({ error: "Invalid username or password"});
             }
         }
-    }).catch(e => utils.quickErrorResponse(e, returndata));
+    }).catch(e => utils.quickErrorReturn(e, res));
 }
 
-exports.doLogout = function(data, session, returndata) {
-    session.destroy(e => {
-        if(e) utils.quickErrorResponse(e, returndata);
+exports.doLogout = function(req, res) {
+    req.session.destroy(e => {
+        if(e) utils.quickErrorReturn(e, res);
         else {
-            returndata({ status: "You have been logged out"}, 'pbforum_sid');
+            res.clearCookie('pbforum_sid');
+            res.send({ status: "You have been logged out"});
         }
     });
 }
 
-exports.checkSession = function(data, session, returndata) {
-    if (session.user) {
-        returndata(session.user);
+exports.checkSession = function(req, res) {
+    if (req.session.user) {
+        res.send(req.session.user);
     } else {
-        returndata({ error: 'Not logged in'}, 'pbforum_sid');
+        res.clearCookie('pbforum_sid');
+        res.send({ error: 'Not logged in'});
     }
 }
 
@@ -156,7 +157,7 @@ exports.getIconData = function(req, res) {
     });
 }
 
-exports.getUserProfile = function(data, session, returndata) {
+exports.getUserProfile = function(req, res) {
     /*  {
             username
             usertitle
@@ -168,19 +169,19 @@ exports.getUserProfile = function(data, session, returndata) {
     Promise.all([
         request({
             method: "GET",
-            uri: utils.urlstart + utils.designdoc + "/_view/user-by-name?key=\"" + data.user + "\"",
+            uri: utils.urlstart + utils.designdoc + "/_view/user-by-name?key=\"" + req.params.user + "\"",
             headers: { Authorization: utils.totalAuthString },
             json: true
         }),
         request({
             method: "GET",
-            uri: utils.urlstart + utils.designdoc + "/_view/user-post-count?key=\"" + data.user + "\"",
+            uri: utils.urlstart + utils.designdoc + "/_view/user-post-count?key=\"" + req.params.user + "\"",
             headers: { Authorization: utils.totalAuthString },
             json: true
         }),
         request({
             method: "GET",
-            uri: utils.urlstart + utils.designdoc + "/_view/character-by-user?key=\"" + data.user + "\"",
+            uri: utils.urlstart + utils.designdoc + "/_view/character-by-user?key=\"" + req.params.user + "\"",
             headers: { Authorization: utils.totalAuthString },
             json: true
         })
@@ -204,11 +205,11 @@ exports.getUserProfile = function(data, session, returndata) {
                 userpdata.characters.push(character);
             }
 
-            returndata({status: 'Character Found', data: userpdata});
+            res.send({status: 'Character Found', data: userpdata});
         } else {
-            returndata({error: "Could not find user"});
+            res.send({error: "Could not find user"});
         }
-    }).catch(e => utils.quickErrorResponse(e, returndata));
+    }).catch(e => utils.quickErrorReturn(e, res));
 }
 
 function updateCharacterIcon(charid, iconname, chardata) {
@@ -287,29 +288,29 @@ function updateUserIcon(username, iconname) {
     }).catch(e => console.log(e.message));
 }
 
-exports.putIcon = function(data, session, returndata) {
+exports.putIcon = function(req, res) {
     // upload a new icon
     // check with filetype, reject if not an image
 
     // if character exists, make sure it exists in db and the character belongs to the user
 
     // only the user should be able to do this to their own files!
-    if (!data || !data.data || typeof data.data != "string" || data.data.length == 0) {
-        returndata({error: "Missing image data"});
+    if (!req.body || !req.body.data || typeof req.body.data != "string" || req.body.data.length == 0) {
+        res.send({error: "Missing image data"});
         return;
     }
 
-    let imageBuffer = Buffer.from(data.data, 'base64');
+    let imageBuffer = Buffer.from(req.body.data, 'base64');
     let fileformat = filetype(imageBuffer);
     if (!fileformat.mime.startsWith("image/")) {
-        returndata({ error: "Expected image/ type, got " + fileformat.mime});
+        res.send({ error: "Expected image/ type, got " + fileformat.mime});
         return;
     }
 
     // check the size
     // as on client-side, we're expecting 1.2MB max
     if (imageBuffer.length > 1.2 * 1024 * 1024) {
-        returndata({ error: "File too large! Expected 1.2MB max"});
+        res.send({ error: "File too large! Expected 1.2MB max"});
         return;
     }
 
@@ -317,36 +318,36 @@ exports.putIcon = function(data, session, returndata) {
     // as on client side, we're expecting 150x150px
     let imDims = imageDims(imageBuffer);
     if (imDims.width > 150 || imDims.height > 150) {
-        returndata({ error: "Image too big! Expected 150 by 150 px"});
+        res.send({ error: "Image too big! Expected 150 by 150 px"});
         return;
     }
 
-    if (session.user) {
-        if (data.character) {
+    if (req.session.user) {
+        if (req.params.character) {
             // update one of the user's characters
             // get the character id from the db
             request({
                 method: "GET",
-                uri: utils.urlstart + utils.designdoc + '/_view/character-by-user-and-id?key=["' + session.user.name + '", "' + data.character + '"]',
+                uri: utils.urlstart + utils.designdoc + '/_view/character-by-user-and-id?key=["' + req.session.user.name + '", "' + req.params.character + '"]',
                 headers: { Authorization: utils.totalAuthString },
                 json: true
             }).then(doc =>{
                 if (doc.rows.length == 0) {
-                    returndata({error: "Could not find character!"});
+                    res.send({error: "Could not find character!"});
                     return;
                 }
                 let filename = doc.rows[0].value._id + "." + fileformat.ext;
                 fs.writeFile("icons/" + filename, imageBuffer, (err) => {
                     if (err) {
                         console.log(err);
-                        returndata({error: "Image upload failed on server-side"});
+                        res.send({error: "Image upload failed on server-side"});
                     } else {
                         // Update the character info
                         if (doc.rows[0].value.icon != filename) {
                             updateCharacterIcon(doc.rows[0].value._id, filename, doc.rows[0].value);
                         }
 
-                        returndata({status: "Upload successful!", image: filename});
+                        res.send({status: "Upload successful!", image: filename});
                     }
                 })
             }).catch(e => console.log(e.message));
@@ -355,41 +356,41 @@ exports.putIcon = function(data, session, returndata) {
             // update the user's own image
             // first, save the file
             // consider saving the file to a buffer file and copying over to the actual location
-            let filename = session.user.dbid + "." + fileformat.ext;
+            let filename = req.session.user.dbid + "." + fileformat.ext;
             fs.writeFile("icons/" + filename, imageBuffer, (err) => {
                 if (err) {
                     console.log(err);
-                    returndata({error: "Image upload failed on server-side"});
+                    res.send({error: "Image upload failed on server-side"});
                 } else {
                     // Update the user's info
 
-                    if (session.user.icon != filename) {
-                        session.user.icon = filename;
-                        updateUserIcon(session.user.name, filename);
+                    if (req.session.user.icon != filename) {
+                        req.session.user.icon = filename;
+                        updateUserIcon(req.session.user.name, filename);
                     }
 
 
 
-                    returndata({status: "Upload successful!", image: filename});
+                    res.send({status: "Upload successful!", image: filename});
                 }
             })
         }
     } else {
-        returndata({error: "You are not logged in!"});
+        res.send({error: "You are not logged in!"});
     }
 }
 
-exports.editUser = function(data, session, returndata) {
+exports.editUser = function(req, res) {
     // assume only the user can edit their info
     // maybe later let admins do it too
-    if (!session.user || session.user.name != data.user) {
-        returndata({eror: "You do not have the permissions to edit this user"});
+    if (!req.session.user || req.session.user.name != req.params.user) {
+        res.send({eror: "You do not have the permissions to edit this user"});
         return;
     }
 
     request({
         method: "GET",
-        uri: utils.urlstart + utils.designdoc + '/_view/user-by-name?key="' + session.user.name + '"',
+        uri: utils.urlstart + utils.designdoc + '/_view/user-by-name?key="' + req.session.user.name + '"',
         headers: { Authorization: utils.totalAuthString },
         json: true
     }).then(doc =>{
@@ -406,19 +407,19 @@ exports.editUser = function(data, session, returndata) {
 
             let doEdit = false;
 
-            if (data.title) {
-                if (typeof data.title == 'string') {
-                    user.title = data.title;
+            if (req.body.title) {
+                if (typeof req.body.title == 'string') {
+                    user.title = req.body.title;
                     doEdit = true;
                 } else {
-                    returndata({error: "Title must be a string object"});
+                    res.send({error: "Title must be a string object"});
                     return;
                 }
             }
             // do any other changes here
 
             if (!doEdit) {
-                returndata({error: "No edit fields provided"});
+                res.send({error: "No edit fields provided"});
                 return;
             }
             request({
@@ -428,8 +429,8 @@ exports.editUser = function(data, session, returndata) {
                 body: JSON.stringify(user),
                 resolveWithFullResponse: true
             }).then(response => {
-                returndata({status: "Edit successful"})
-            }).catch(e => utils.quickErrorResponse(e, returndata));
+                res.send({status: "Edit successful"})
+            }).catch(e => utils.quickErrorReturn(e, res));
         }
     }).catch(e => console.log(e.message));
 }
