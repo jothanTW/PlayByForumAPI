@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <link rel="stylesheet" type="text/css" href="/style/groups.css">
+    </head>
+    <body>
+        <% include banner %>
+        <div class="group-container">
+            <div class="group-list">
+                <% for (let group of data) {%>
+                    <div class="forum-group">
+                        <div class="forum-group-header">
+                            <div class="forum-group-title"><%= group.title %></div>
+                            <div class="forum-group-header-name">Threads</div>
+                            <div class="forum-group-header-name">Posts</div>
+                        </div>
+                        <div class="forum-list">
+                            <% for (let forum of group.forums) {%>
+                                <% include forum-bar %>
+                            <% } %>
+                        </div>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </body>
+</html>

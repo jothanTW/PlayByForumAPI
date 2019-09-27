@@ -61,3 +61,39 @@ try {
 } catch (e) {
     console.warn("Could not start HTTPS REST service: " + e);
 }
+
+
+// setup the static pages
+let staticapp = express();
+staticapp.use(bodyparser.json());
+
+let staticport = 8000;
+let staticportSec = 8443;
+
+staticapp.use(cors({
+  exposedHeaders: ['Set-Cookie'], credentials: true, origin: function (origin, callback) { callback(null, true)}
+}));
+
+staticapp.use(session({
+  key: 'pbforum_sid',
+  secret: configs.configs.cookiesecret,
+  resave: false,
+  saveUninitialized: false,
+  credentials: true,
+  rolling: true,
+  cookie: {
+      maxAge: 31536000000, // ~one year
+      sameSite: 'lax',
+      httpOnly: false
+  }
+}));
+
+let staticGroupRoute = require('./routes/static/home');
+let staticFileRoute = require('./routes/static/file');
+
+staticGroupRoute(staticapp);
+staticFileRoute(staticapp);
+
+staticapp.listen(staticport);
+
+console.log('pbforum static server now listening on: ' + staticport);
