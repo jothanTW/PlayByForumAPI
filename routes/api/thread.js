@@ -10,4 +10,7 @@ module.exports = function(app) {
 
     app.route('/thread/:thread/:post')
         .put(utils.createResponseFunction(threadController.editPost));
+
+    app.route('/thread/:thread/map')
+        .post(utils.createResponseFunction(threadController.addMap));
 };

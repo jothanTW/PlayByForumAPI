@@ -89,7 +89,7 @@ exports.makePost = function(data, session, returndata) {
 }
 
 exports.getThreadData = function(data, session, returndata) {
-    // get this thread, its posts, and all forums (to build crumbs)
+    // get this thread, its posts, all forums (to build crumbs), and all associated maps
 
     // first, get the post counts
     // if response has no rows, exit early- the thread does not exist for all intents
@@ -139,9 +139,15 @@ exports.getThreadData = function(data, session, returndata) {
                 uri: utils.urlstart + utils.designdoc + "/_view/forums-by-parent",
                 headers: { Authorization: utils.totalAuthString },
                 json: true
+            }),
+            request({
+                method: "GET",
+                uri: utils.urlstart + utils.designdoc + '/_view/maps-by-thread?key="' + data.thread + '"',
+                headers: { Authorization: utils.totalAuthString },
+                json: true
             })
         ]).then(promisevalues => {
-            let [threads, posts, forums] = promisevalues;
+            let [threads, posts, forums, maps] = promisevalues;
             let thread = threads.rows[0].value;
             let returnData = {
                 id: data.thread,
@@ -150,7 +156,8 @@ exports.getThreadData = function(data, session, returndata) {
                 postNum: thread.posts,
                 owner: thread.user,
                 posts: [],
-                crumbs: []
+                crumbs: [],
+                maps: []
             }
             // build a list of users
             let userlist = [];
@@ -197,7 +204,15 @@ exports.getThreadData = function(data, session, returndata) {
                 }
             }
 
-            // TODO: get the posts's users and characters from the db, and build the headers properly
+            // add all maps
+            for (let row of maps.rows) {
+                let m = row.value;
+                delete m._rev;
+                // might need this
+                // delete m._id
+                returnData.maps.push(m);
+            }
+
             let usrString = '["' + userlist.join('","') + '"]';
             let charString = '[' + characterlist.join(",") + ']';
             Promise.all([
@@ -215,7 +230,6 @@ exports.getThreadData = function(data, session, returndata) {
                 })
             ]).then(userchars => {
                 let [userset, charset] = userchars;
-                // for now, just do the users
                 for (let post of returnData.posts) {
                     if (post.header.alias) {
                         for (let row of charset.rows) {
@@ -315,5 +329,78 @@ exports.editPost = function (data, session, returndata) {
             }
         }).catch(e => utils.quickErrorResponse(e, returndata));
 
+    }).catch(e => utils.quickErrorResponse(e, returndata));
+}
+
+exports.addMap = function(data, session, returndata) {
+    // can we verify an image link from here?
+    // frontend will only draw it to canvas, anyway
+
+    // make sure the user is logged in, get the thread data, make sure the user is a thread owner
+    if (!session.user) {
+        returndata({error: "You are not logged in!"});
+        return;
+    }
+    request({
+        method: "GET",
+        uri: utils.urlstart + utils.designdoc + '/_view/doc-by-id?key="' + data.thread + '"',
+        headers: { Authorization: utils.totalAuthString },
+        json: true
+    }).then(rdata => {
+        let threadfound = false;
+        for (let row of rdata.rows) {
+            if (row.value.type == 'thread') {
+                threadfound = true;
+                let tdata = row.value;
+                if (!tdata.isGame) {
+                    returndata({error: "This thread does not support maps"});
+                    return;
+                }
+                if (session.user.name != tdata.user) {
+                    returndata({error: "You do not have permissions to do that"});
+                    return;
+                }
+                if (!data.mapname || typeof data.mapname != "string" || data.mapname.length == 0) {
+                    returndata({error: 'Missing map name'});
+                    return;
+                }
+                if (!data.mapsource || typeof data.mapsource != "string" || data.mapsource.length == 0) {
+                    returndata({error: 'Missing map source'});
+                    return;
+                }
+                if (!data.gridsize) {
+                    returndata({error: 'Missing map grid data'});
+                    return;
+                }
+                let mapdata = {
+                    title: data.mapname,
+                    type: "map",
+                    parent: data.thread,
+                    source: data.mapsource,
+                    grid: {
+                        size: data.gridsize
+                    },
+                    icons: []
+                }
+                if (data.gridoffx) mapdata.grid.offx = data.gridoffx;
+                if (data.gridoffy) mapdata.grid.offy = data.gridoffy;
+
+                // post the new map
+                request({
+                    method: "POST",
+                    uri: utils.urlstart,
+                    headers: { Authorization: utils.totalAuthString, "Content-Type": "application/json" },
+                    body: JSON.stringify(mapdata),
+                    resolveWithFullResponse: true
+                }).then(response => {
+                    // if we get a bad status code, it chould be caught
+                    returndata({status: "Map created!"});
+                }).catch(e => utils.quickErrorResponse(e, returndata));
+            }
+        }
+        if (!threadfound) {
+            returndata({error: 'Sepcified thread could not be found'});
+            return;
+        }
     }).catch(e => utils.quickErrorResponse(e, returndata));
 }
