@@ -1,11 +1,12 @@
 let configs = require("../../config/config.js");
 let request = require("request-promise-native");
 
-exports.urlstart = configs.configs.dburl + "/" + configs.configs.dbname;
+exports.urlstart = configs.dburl + "/" + configs.dbname;
 exports.designdoc = "/_design/forumdoc";
-exports.authstring = configs.configs.dbuser + ":" + configs.configs.dbpass;
+exports.authstring = configs.dbuser + ":" + configs.dbpass;
 
 exports.totalAuthString = "Basic " + Buffer.from(exports.authstring).toString("base64");
+exports.minSalt = 64;
 
 let testTitleRegex = /[^a-z0-9!?%$#@&*-_/\\ ]/gi
 

@@ -2,9 +2,9 @@ let configs = require("../../config/config.js");
 let http = require("http");
 let request = require("request-promise-native");
 
-const urlstart = configs.configs.dburl + "/" + configs.configs.dbname;
+const urlstart = configs.dburl + "/" + configs.dbname;
 const designdoc = "/_design/forumdoc";
-const authstring = configs.configs.dbuser + ":" + configs.configs.dbpass;
+const authstring = configs.dbuser + ":" + configs.dbpass;
 
 const totalAuthString = "Basic " + Buffer.from(authstring).toString("base64");
 

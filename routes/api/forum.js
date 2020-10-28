@@ -1,6 +1,7 @@
 module.exports = function(app) {
-    let forumController = require('../../controllers/couch/forumController');
-    let utils = require("../../controllers/couch/controllerUtils");
+    let configs = require("../../config/config.js");
+    let forumController = require('../../controllers/' + configs.dbDirectory + '/forumController');
+    let utils = require("../../controllers/" + configs.dbDirectory + "/controllerUtils");
   
     app.route('/forum/:forum/:page?')
         .get(utils.createResponseFunction(forumController.getForumData));

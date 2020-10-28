@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <% include includes %>
+    </head>
+    <body onload="adjustAllDateFields()">
+        <% include banner %>
+        <div class="forum-page">
+            <div class="forum-page-title">
+                <%= forumpage.title %>
+            </div>
+            <div class="forum-page-crumbs">
+                <a href="/">Home</a>
+                <% for (let crumb of forumpage.crumbs) {%>
+                    <div class="forum-page-crumb">&lt;<a href="<%= '/forum/' + crumb.id %>"><%= crumb.title %></a></div>
+                <%}%>
+            </div>
+            <% if (forumpage.subforums && forumpage.subforums.length) { %>
+                <div class="sub-forum-box">
+                    <div class="sub-forum-box-header">
+                        <div class="sub-forum-box-title">Subforums</div>
+                        <div class="sub-forum-box-header-name">Threads</div>
+                        <div class="sub-forum-box-header-name">Posts</div>
+                    </div>
+                    <% for (let forum of forumpage.subforums) {%>
+                        <% include forum-bar %>
+                    <% } %>
+                </div>
+            <% } %>
+            <!--div v-if="canCreate" class="new-thread-button"><router-link :to="'/forum/' + $route.params.forum + '/create-thread'">Create New Thread</router-link></div-->
+            <div class="thread-box">
+                <div class="thread-box-header">
+                    <div class="thread-box-title">Threads</div>
+                    <div class="thread-box-header-name">Posts</div>
+                    <div class="thread-box-header-name">Views</div>
+                    <div class="thread-box-header-last">Last Poster</div>
+                </div>
+                <% for (let thread of forumpage.threads) {%>
+                    <% include thread-bar %>
+                <% } %>
+            </div>
+        </div>
+    </body>
+</html>

@@ -1,5 +1,6 @@
 module.exports = function(app) {
-    let adminController = require('../../controllers/couch/adminController');
+    let configs = require("../../config/config.js");
+    let adminController = require('../../controllers/' + configs.dbDirectory + '/adminController');
   
     app.route('/admin/update-forum-counts')
         .put(adminController.setForumStats);

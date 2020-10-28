@@ -1,9 +1,21 @@
 
 <div class="forum-bar">
-    <div class="forum-bar-text">
-        <%= forum.title %>
+    <div class="forum-bar-main">
+        <div class="forum-bar-text">
+            <a href="<%= '/forum/' + forum.id %>"><%= forum.title %></a>
+        </div>
+        <div class="forum-bar-stats">
+            <div class="forum-stats-threads"><%= forum.threadnum %></div>
+            <div class="forum-stats-posts"><%= forum.postnum %></div>
+        </div>
     </div>
-    <div class="forum-bar-stats">
-
-    </div>
+    <% if (forum.subforums.length) {%>
+        <div class="forum-bar-subforums">
+            Subforums: <%= forum.subforums[0].title %>
+            <% for (let i = 1; i < forum.subforums.length; i++) {%>
+                ,<%= forum.subforums[i].title %>
+            <% } %>
+        </div>
+    <% } %>
+    
 </div>

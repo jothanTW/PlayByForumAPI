@@ -1,0 +1,100 @@
+.profile-body {
+    margin: 20px;
+}
+
+.profile-body .crumbs {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 10px;
+}
+.profile-body .crumbs a {
+    margin-right: 10px;
+}
+.profile-header {
+    font-size: 40px;
+    font-weight: bold;
+}
+.user-image {
+    margin: 20px;
+}
+.user-image img {
+    margin: 10px;
+}
+.user-stat-block {
+    margin-top: 40px;
+    margin-bottom: 40px;
+}
+
+.user-stat-block.unimplemented {
+    font-size: 40px;
+    font-weight: bold;
+    font-family: "Comic Sans MS", cursive, sans-serif;
+}
+.user-character-list {
+    border: 10px solid grey;
+}
+.user-character-list p {
+    margin-left: 10px;
+}
+.profile-character-square {
+    display: flex;
+    height: 70px;
+    margin: 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding: 10px;
+    transition: box-shadow 200ms ease-in, transform 200ms ease-in;
+    cursor: pointer;
+    box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+}
+.profile-character-square:hover {
+    box-shadow: 4px 4px 4px rgba(0, 0, 0, 0.5);
+    transform: translate(-3px, -3px);
+}
+.character-small-icon {
+    width: 90px;
+    margin-top: auto;
+    margin-bottom: auto;
+}
+.character-small-icon img {
+    height: 50px;
+    border-radius: 50%;
+    border: 5px solid #880000;
+}
+.character-name {
+    font-weight: bold;
+}
+        
+div.new-character-box {
+    border: 2px solid black;
+    margin: 10px;
+    padding: 10px;
+}
+div.new-character-box:hover {
+    transform: none;
+    cursor: auto;
+    box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+}
+.character-icon-uploader {
+    display: flex;
+    flex-direction: column;
+    margin-left: 10px;
+    justify-content: space-between;
+}
+.new-character-query {
+    font-style: italic;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+}
+.new-character-query p {
+    margin: 0;
+}
+.new-character-query button {
+    margin-left: 10px;
+}
+
+input[type="text"] {
+    width: 200px;
+    font-size: 16px;
+}

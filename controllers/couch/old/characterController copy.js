@@ -72,7 +72,7 @@ exports.addCharacter = function(req, res) {
         headers: { Authorization: utils.totalAuthString },
         json: true
     }).then(cdat => {
-        if (cdat.rows >= configs.configs.maxCharactersPerUser) {
+        if (cdat.rows >= configs.maxCharactersPerUser) {
             res.send({error : "Maximum character limit reached!"});
         }
         

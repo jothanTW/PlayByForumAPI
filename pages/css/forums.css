@@ -1,0 +1,126 @@
+.forum-page-title {
+    font-size: 24px;
+    font-weight: bold;
+}
+.forum-page-crumbs {
+    display: flex;
+    font-size: 20px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+.crumb-home {
+    margin-right: 10px;
+}
+.forum-page-crumb a {
+    margin-left: 10px;
+    margin-right: 10px;
+}
+.sub-forum-box {
+    background-color: grey;
+    border: 10px solid grey;
+    border-radius: 15px;
+    margin: 20px;
+}
+.sub-forum-box-header {
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    display: flex;
+}
+.sub-forum-box-title {
+    flex-grow: 1;
+    padding: 10px;
+    padding-top: 0;
+}
+.sub-forum-box-header-name {
+    padding: 10px;
+    padding-top: 0;
+    width: 100px;
+    max-width: 100px;
+}
+.thread-box {
+    background-color: grey;
+    border: 10px solid grey;
+    border-radius: 15px;
+    margin: 20px;
+    overflow:hidden;
+}
+.thread-box-header {
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    display: flex;
+}
+.thread-box-header>div {
+    padding: 10px;
+    padding-top: 0;
+}
+.thread-box-title {
+    flex-grow: 1;
+}
+.thread-box-header-name {
+    width: 100px;
+    max-width: 100px;
+}
+.thread-box-header-last {
+    width: 200px;
+    max-width: 200px;
+}
+.forum-threads {
+    background-color: white;
+}
+.forumloader {
+    min-height: 20px;
+    padding: 10px;
+    background-color: white;
+}
+.thread-bar {
+    display: flex;
+    background-color: white;
+    border-bottom: 1px solid grey;
+}
+.thread-text {
+    flex-grow: 1;
+    padding: 10px;
+    font-size: 20px;
+    min-height: 50px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.thread-pages {
+    display: flex;
+    font-size: 12px;
+}
+.thread-pages>a {
+    display: block;
+    width: 15px;
+    height: 15px;
+    text-align: center;
+    line-height: 15px;
+    
+    padding: 0px;
+    background-color: lightgray;
+    margin-left: 5px;
+    text-decoration: none;
+}
+.thread-stats {
+    display: flex;
+}
+.thread-stat {
+    width: 100px;
+    max-width: 100px;
+    padding: 10px;
+}
+.thread-last-poster {
+    width: 200px;
+    max-width: 200px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+}
+.thread-last-posted-date {
+    font-size: 10px;
+    margin-left: 20px;
+}

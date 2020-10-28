@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <% include includes %>
+        <script src="/script/uploads.js"></script>
+    </head>
+    <body onload="adjustAllDateFields()">
+        <% include banner %>
+        <div class="profile-body">
+            <div class="crumbs">
+                <a href="/">Home</a>&lt; <%= user.name ? user.name + "'s" : 'User'%> Profile Page
+            </div>
+            <% if (user.name) { %>
+                <% if (user.name == locals.username) { %>
+                    <div class="profile-header">Hi <%= user.name %>!!</div>
+                <% } %>
+                <div class="user-image">
+                    <% if (user.icon.length) { %>
+                        <img id="userimageele" src="<%=user.icon%>">
+                    <% } else if (user.name == locals.username) { %>
+                        <div>You have no user icon. Upload one?</div>
+                    <% } else { %>
+                        <div>This user has no icon</div>
+                    <% } %>
+
+                    <% if (user.name == locals.username) { %>
+                        <div style="display: flex; flex-direction: column; font-style: italic">
+                            Change your icon?
+                            <input type="file" id="userImageUpload" onchange="updateUserImage()" accept="image/*">
+                        </div>
+                        <button onclick="sendUserImageData()">Save Image Changes</button>
+                    <% } %>
+                </div>
+                <div class="user-title-text">
+                    <% if (user.name == locals.username) { %>
+                        <input type="text" placeholder="Optional Title Text" value="<%=user.title%>" origtitle="<%=user.title%>" id="usertitleinput" onchange="handleUserTitleChange()">
+                        <button onclick="updateTitle()">Update Title Text</button>
+                    <% } else { %>
+                        <div><%= user.title %></div>
+                    <% } %>
+                </div>
+                <div class="user-stat-block unimplemented">THIS IS THE USER STAT BLOCK<br>IT ISN'T IMPLEMENTED YET</div>
+                <% if (user.characters.length > 0 || user.name == locals.username) { %>
+                <div class="user-character-list">
+                    <% if (user.characters.length == 0) { %>
+                        <p >You have no character sheets!</p>
+                    <% } else if (user.name == locals.username) { %>
+                        <p>You have <%= user.characters.length %> out of <%= locals.maxCharacters ? locals.maxCharacters : 100 %> character sheets uploaded.</p>
+                    <% } %>
+                    <% for (let i = 0; i < user.characters.length; i++) { %>
+                        <a href="/user/<%=user.name%>/character/<%=user.characters[i].name%>">
+                            <div class="character-small-icon">
+                                <% if (user.characters[i].icon) { %>
+                                    <img src="<%=user.characters[i].icon%>">
+                                <% } %>
+                            </div>
+                            <div class="character-name"><%= user.characters[i].name %></div>
+                        </a>
+                    <% } %>
+                    <!-- div v-if="characters.length < maxCharacters && thisuser == username" class="new-character-box profile-character-square">
+                        <img ref="charIcoPre" v-if="imagePlaceholder.length" :src="imagePlaceholder">
+                        <div style="display: flex;">
+                            <div class="character-icon-uploader">
+                                <input type="text" v-model="ncharname" placeholder="Character Name">
+                                <input type="file" ref="charIcon" accept="image/*" placeholder="Character Icon" @change="updateImagePlaceholder">
+                            </div>
+                            <div>
+                                <div class="new-character-query">
+                                    <p>Start a new character sheet?</p>
+                                    <button @click="createNewCharacter" :disabled="ncharname.length == 0">Create!</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="error-text" v-if="errorText.length">{{ errorText }}</div>
+                    </div -->
+                </div>
+                <% } %>
+            </div>
+            <% } else { %>
+                <div class="profile-header">You are not logged in!</div>
+            <% } %>
+        </div>
+    </body>
+</html>

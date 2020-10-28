@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <% include includes %>
+    </head>
+    <body onload="adjustAllDateFields()">
+        <% include banner %>
+        <div class="login-page">
+            <div class="login-box">
+                <form id="loginform" action="/login/" method="POST">
+                    <input id="username" name="id" type="text">
+                    <input id="password" name="password" type="password">
+                    <input id="loginbutton" type="submit" value="Login">
+                </form>
+                <% if (data.error) { %>
+                    <div class="login-error-box"><%= data.error %></div>
+                <% } %>
+            </div>
+        </div>
+    </body>
+</html>

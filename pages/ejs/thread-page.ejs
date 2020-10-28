@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <% include includes %>
+    </head>
+    <body onload="adjustAllDateFields()">
+        <% include banner %>
+        <div class="thread-title"><%= threaddata.title %></div>
+        <div class="thread-breadcrumbs">
+            <a href="/">Home</a>
+            <% for (let crumb of threaddata.crumbs) { %>
+                <div class="forum-page-crumb">&lt;<a href="<%= '/forum/' + crumb.id %>"><%= crumb.title %></a></div>
+            <% } %>
+        </div>
+        <div class="post-box">
+            <% for (let post of threaddata.posts) { %>
+                <% include post-bar %>
+            <% } %>
+        </div>
+    </body>
+</html>

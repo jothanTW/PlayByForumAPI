@@ -1,3 +1,13 @@
 <div class="banner">
     HI WELCOME TO FORUM
+    <div class="login-info-box">
+        <% if (locals.username) { %>
+            Hi; <%= locals.username %>!
+            <a href="/user/<%=locals.username%>" class="button-link">Profile</a>
+            <a href="/logout" class="button-link">Sign Out</a>
+        <% } else { %>
+            <a href="/login" class="button-link">Sign in</a>
+            <button>aaaaa</button>
+        <% } %>
+    </div>
 </div>

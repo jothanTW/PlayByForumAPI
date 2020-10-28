@@ -4,9 +4,9 @@ let request = require("request-promise-native");
 
 let utils = require("./controllerUtils");
 
-const urlstart = configs.configs.dburl + "/" + configs.configs.dbname;
+const urlstart = configs.dburl + "/" + configs.dbname;
 const designdoc = "/_design/forumdoc";
-const authstring = configs.configs.dbuser + ":" + configs.configs.dbpass;
+const authstring = configs.dbuser + ":" + configs.dbpass;
 
 const totalAuthString = "Basic " + Buffer.from(authstring).toString("base64");
 

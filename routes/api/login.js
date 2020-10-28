@@ -1,6 +1,8 @@
+let configs = require("../../config/config.js");
+
 module.exports = function(app) {
-    let loginController = require('../../controllers/couch/userController');
-    let utils = require("../../controllers/couch/controllerUtils");
+    let loginController = require('../../controllers/' + configs.dbDirectory + '/userController');
+    let utils = require("../../controllers/" + configs.dbDirectory + "/controllerUtils");
   
     app.route('/logout')
         .put(utils.createResponseFunction(loginController.doLogout));

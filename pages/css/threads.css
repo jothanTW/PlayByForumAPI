@@ -1,0 +1,119 @@
+.thread-title {
+    font-size: 24px;
+    font-weight: bold;
+}
+.thread-breadcrumbs {
+    display: flex;
+    margin-top: 10px;
+    font-weight: bold;
+    font-size: 20px;
+}
+.thread-breadcrumbs.crumb {
+    margin-left: 10px;
+}
+.thread-breadcrumbs.crumb.a {
+    margin-left: 10px;
+}
+
+.post-box {
+    margin: 20px;
+    border: 10px solid grey;
+    border-radius: 15px;
+    background-color: white;
+    overflow:hidden;
+}
+
+.post {
+    background-color: white;
+    min-height: 100px;
+    display: flex;
+    border-bottom: 3px solid grey;
+    position: relative;
+}
+
+.post:last-child {
+    border-bottom: none;
+}
+
+.post-header {
+    width: 200px;
+    min-width: 200px;
+    max-width: 200px;
+    padding: 10px;
+    border-right: 3px solid grey;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+.poster-name {
+    font-weight: bold;
+}
+.poster-name a {
+    text-decoration: none;
+    color: black;
+}
+.poster-name.obscured a {
+    color: grey;
+}
+.poster-name.obscured>span {
+    margin-left: 10px;
+    font-weight: normal;
+    font-style: italic;
+}
+.poster-char-name {
+    font-weight: bold;
+    margin-top: 10px;
+}
+.poster-char-name a {
+    text-decoration: none;
+    color: black;
+}
+.poster-title {
+    font-style: italic;
+    margin-top: 10px;
+}
+.poster-date {
+    align-self: flex-end;
+    vertical-align: bottom;
+    margin-top: auto;
+}
+.post-content {
+    padding: 10px;
+    display: flex;
+    flex-grow: 1;
+    flex-direction: column;
+    word-wrap: break-word;
+    max-width: calc(100% - 240px);
+}
+.post-text, .post-ooc {
+    padding: 10px;
+}
+.edit-area, .post-area {
+    overflow: hidden;
+    flex-grow: 1;
+    max-height: 0px;
+    word-wrap: break-word;
+}
+.edit-area.active, .post-area.active {
+    max-height: initial;
+    padding: 10px;
+}
+.edit-area.active textarea, .post-area.active textarea{
+    min-height: 100px;
+}
+
+textarea {
+    display: flex;
+    width: 100%;
+    flex-grow: 1;
+}
+.post-ooc.bordered{
+    margin-top: 10px;
+    border-top: 3px dashed grey;
+}
+.post-buttons {
+    display: flex;
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+}

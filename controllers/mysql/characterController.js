@@ -3,47 +3,66 @@ let request = require("request-promise-native");
 
 let utils = require("./controllerUtils");
 
+let Character = require("../../models/character");
+
+let msqlcon = utils.connection;
+
 // CHARACTER IDS ARE STORED AS KEBABS
 
 exports.getCharacter = function(data, session, returndata) {
     // assume each character has a unique name under each player
-    request({
-        method: "GET",
-        uri: utils.urlstart + utils.designdoc + "/_view/character-by-user?key=\"" + data.username + "\"",
-        headers: { Authorization: utils.totalAuthString },
-        json: true
-    }).then(cdat => {
-        for (let row of cdat.rows) {
-            if (row.value.id == data.charactername) {
-                let character = Object.assign({}, row.value);
-                delete character._rev;
-                delete character._id;
-                returndata({status: "Character retrieved", character: character});
-                return;
-            }
+    msqlcon.query("select characters.id, characters.name, characters.title, characters.av, characters.statblock, characters.bio " +
+                "from characters " +
+                "join users on users.pkey = characters.user " +
+                "where characters.id = ? and users.userid = ?;", [data.charactername, data.username], (e, r, f) => {
+        if (e) {
+            console.log(e);
+            returndata({error: "There was a server error getting the character"});
+            return;
         }
-        returndata({error: "Could not find character under that user/id"});
-        // if we got here, we couldn't find the character
-    }).catch(e => utils.quickErrorResponse(e, returndata));
+        if (r.length == 0) {
+            returndata({error: "The specified character could not be found"});
+            return;
+        }
+        if (r.length > 1) {
+            console.log("multiple characters under user " + data.username + " found with character id " + data.charactername);
+            returndata({error: "There was a server error getting the character"});
+            return;
+        }
+        let foundCharacter = new Character(0, r[0].id, r[0].name, data.username, r[0].title, r[0].av);
+        try {
+            foundCharacter.statBlock = JSON.parse(r[0].statblock);
+        } catch (e) {
+            console.log("Invalid statblock on character " + data.charactername + " under user " + data.username);
+        }
+        foundCharacter.bio = r[0].bio;
+        returndata({status: "Character retrieved", character: foundCharacter});
+    });
 }
 
 exports.getAllCharacters = function(data, session, returndata) {
-    request({
-        method: "GET",
-        uri: utils.urlstart + utils.designdoc + "/_view/character-by-user?key=\"" + data.username + "\"",
-        headers: { Authorization: utils.totalAuthString },
-        json: true
-    }).then(cdat => {
+    msqlcon.query("select characters.id, characters.name, characters.title, characters.av, characters.statblock, characters.bio " +
+                "from characters " +
+                "join users on users.pkey = characters.user " +
+                "where users.userid = ?;", [data.username], (e, r, f) => {
+        if (e) {
+            console.log(e);
+            returndata({error: "There was a server error getting the character"});
+            return;
+        }
         let characters = [];
-        for (let row of cdat.rows) {
-            let character = Object.assign({}, row.value);
-            delete character._rev;
-            delete character._id;
-            characters.push(character);
+        for (let i = 0; i < r.length; i++) {
+            let foundCharacter = new Character(0, r[i].id, r[i].name, data.username, r[i].title, r[i].av);
+            try {
+                foundCharacter.statBlock = JSON.parse(r[i].statblock);
+            } catch (e) {
+                console.log("Invalid statblock on character " + data.charactername + " under user " + data.username);
+            }
+            foundCharacter.bio = r[i].bio;
+            characters.push(foundCharacter);
         }
         returndata({status: characters.length + " character" + (characters.length == 1 ? '' : 's') + " found", characters: characters});
-
-    }).catch(e => utils.quickErrorResponse(e, returndata));
+    });
 }
 
 exports.addCharacter = function(data, session, returndata) {
@@ -66,51 +85,36 @@ exports.addCharacter = function(data, session, returndata) {
     }
 
     let charid = utils.makeKebab(data.characterName);
-    request({
-        method: "GET",
-        uri: utils.urlstart + utils.designdoc + "/_view/character-by-user?key=\"" + data.username + "\"",
-        headers: { Authorization: utils.totalAuthString },
-        json: true
-    }).then(cdat => {
-        if (cdat.rows >= configs.maxCharactersPerUser) {
-            returndata({error : "Maximum character limit reached!"});
+
+    // check if the character exists under this user
+    // this might need a transaction, but if the sessions are right, it shouldn't?
+    msqlcon.query("select characters.id, characters.name, characters.title, characters.av, characters.statblock, characters.bio " +
+                "from characters " +
+                "join users on users.pkey = characters.user " +
+                "where characters.id = ? and users.userid = ?;", [charid, session.user.name], (e, r, f) => {
+        if (e) {
+            console.log(e);
+            returndata({error: "There was a server error creating the character"});
+            return;
         }
-        
-        for (let row of cdat.rows) {
-            if (row.value.id == charid) {
-                returndata({error: "Character by that name already exists!"});
+        if (r.length > 0) {
+            returndata({error: "Character by that name already exists!"});
+            return;
+        }
+        let charArgs = [session.user.dbid, charid, data.characterName, "", null, data.statBlock, ""];
+        if (data.title && typeof data.title == "string") charArgs[3] = data.title;
+        if (data.icon && typeof data.icon == "string") charArgs[4] = data.icon;
+        if (data.bio && typeof data.bio == "string") charArgs[6] = data.bio;
+
+        msqlcon.query("insert into characters (user, id, name, title, av, statblock, bio) values (?, ?, ?, ?, ?, ?, ?)", charArgs, (e2, r2, f2) => {
+            if (e2) {
+                console.log(e2);
+                returndata({error: "There was a server error creating the character"});
                 return;
             }
-        }
-
-        let characterData = {
-            name: data.characterName,
-            id: charid,
-            statBlock: data.statBlock,
-            user: data.username,
-            type: "character"
-        }
-        if (data.title && typeof data.title == "string") characterData.title = data.title;
-        if (data.icon && typeof data.icon == "string") characterData.icon = data.icon;
-        if (data.smallicon && typeof data.smallicon == "string") characterData.smallicon = data.smallicon;
-
-        request({
-            method: "POST",
-            uri: utils.urlstart,
-            headers: { Authorization: utils.totalAuthString, "Content-Type": "application/json" },
-            body: JSON.stringify(characterData),
-            resolveWithFullResponse: true
-        }).then(response => {
-            if (response.statusCode >= 400) {
-                console.log(response);
-                returndata({error: "An error occurred between the server and the database"});
-            } else {
-                returndata({status: "Character created!", charid: charid});
-            }
-        }).catch(e => utils.quickErrorResponse(e, returndata));
-
-    }).catch(e => utils.quickErrorResponse(e, returndata));
-
+            returndata({status: "Character created!", charid: charid});
+        });
+    });
 }
 
 exports.editCharacter = function(data, session, returndata) {

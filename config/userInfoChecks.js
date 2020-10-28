@@ -20,6 +20,7 @@ exports.checkUserName = function(name) {
 
 exports.checkEmail = function(email) {
     if (!emailregex.test(email)) {
+        console.log(email);
         return "Invalid email address";
     }
     return '';

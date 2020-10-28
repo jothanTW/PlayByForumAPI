@@ -1,0 +1,13 @@
+<div class="thread-bar">
+    <div class="thread-text">
+        <div class="thread-title">
+            <a href="<%= '/thread/' + thread.id %>"><%= thread.title %></a>
+        </div>
+        <div class="thread-pages"></div>
+    </div>
+    <div class="thread-stats">
+        <div class="thread-stat"><%= thread.postnum %></div>
+        <div class="thread-stat"><%= thread.views %></div>
+        <div class="thread-last-poster"><%= thread.last_poster %> <span date-format="MMM DD, YYYY, h:mm"><%= thread.last_post_time %></span></div>
+    </div>
+</div>

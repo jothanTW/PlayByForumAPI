@@ -19,7 +19,7 @@ restapp.use(cors({
 
   restapp.use(session({
     key: 'pbforum_sid',
-    secret: configs.configs.cookiesecret,
+    secret: configs.cookiesecret,
     resave: false,
     saveUninitialized: false,
     credentials: true,
@@ -54,8 +54,8 @@ console.log('pbforum REST server now listening on: ' + restport);
 
 try {
     https.createServer({
-        key: fs.readFileSync(configs.configs.certkey),
-        cert: fs.readFileSync(configs.configs.cert)
+        key: fs.readFileSync(configs.certkey),
+        cert: fs.readFileSync(configs.cert)
       }, restapp).listen(restportSec);
       console.log("pbforum secure REST server now listening on: " + restportSec);
 } catch (e) {
@@ -66,17 +66,21 @@ try {
 // setup the static pages
 let staticapp = express();
 staticapp.use(bodyparser.json());
+staticapp.use(bodyparser.urlencoded({ extended: true }));
 
 let staticport = 8000;
 let staticportSec = 8443;
+
+staticapp.set("view engine", "ejs");
+staticapp.set('views', './pages/ejs');
 
 staticapp.use(cors({
   exposedHeaders: ['Set-Cookie'], credentials: true, origin: function (origin, callback) { callback(null, true)}
 }));
 
 staticapp.use(session({
-  key: 'pbforum_sid',
-  secret: configs.configs.cookiesecret,
+  key: configs.cookiename,
+  secret: configs.cookiesecret,
   resave: false,
   saveUninitialized: false,
   credentials: true,
@@ -87,6 +91,18 @@ staticapp.use(session({
       httpOnly: false
   }
 }));
+
+// try to put some globals into ejs?
+staticapp.use((req, res, next) => {
+  if (req.session.user) {
+    res.locals.username = req.session.user.name;
+  } else {
+    res.locals.username = null;
+  }
+  next();
+})
+
+
 
 let staticGroupRoute = require('./routes/static/home');
 let staticFileRoute = require('./routes/static/file');
