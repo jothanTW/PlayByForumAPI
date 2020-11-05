@@ -102,7 +102,10 @@ staticapp.use((req, res, next) => {
   next();
 })
 
-
+staticapp.locals.imgpath = "/icon/";
+staticapp.locals.maxCharacters = configs.maxCharsPerUser;
+staticapp.locals.maxThreadTitleLength = configs.maxThreadTitleLength;
+staticapp.locals.maxPostLength = configs.maxPostLength;
 
 let staticGroupRoute = require('./routes/static/home');
 let staticFileRoute = require('./routes/static/file');

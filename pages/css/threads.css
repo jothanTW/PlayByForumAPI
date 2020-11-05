@@ -85,7 +85,7 @@
     word-wrap: break-word;
     max-width: calc(100% - 240px);
 }
-.post-text, .post-ooc {
+.post-text {
     padding: 10px;
 }
 .edit-area, .post-area {
@@ -107,9 +107,16 @@ textarea {
     width: 100%;
     flex-grow: 1;
 }
-.post-ooc.bordered{
+.post-ooc{
     margin-top: 10px;
-    border-top: 3px dashed grey;
+    border: 3px dashed grey;
+}
+.post.showing-ooc .post-ooc {
+    padding: 10px;
+}
+.post.showing-ooc .post-area {
+    max-height: initial;
+    padding: 10px;
 }
 .post-buttons {
     display: flex;

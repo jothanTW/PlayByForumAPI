@@ -1,0 +1,55 @@
+.post-controls button {
+    display: flex;
+    float: left;
+}
+
+.post-controls {
+    display: flex;
+}
+
+.edit-text-area .post-ooc-area {
+    display: none;
+}
+
+.edit-text-area.editing-ooc .post-text-area {
+    display: none;
+}
+
+.edit-text-area.editing-ooc .post-ooc-area {
+    display: block;
+}
+
+.create-post-box {
+    max-width: 700px;
+    margin-right: auto;
+    margin-left: auto;
+    background-color: #ddd;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.create-post-box textarea {
+    height: 300px;
+    resize: none;
+    display: block;
+    padding: 0;
+    width: 100%;
+}
+
+.preview-text-area {
+    background-color: white;
+    margin-top: 10px;
+    padding: 5px;
+    min-height: 30px;
+}
+
+.preview-ooc-area {
+    padding-left: 5px;
+    background-color: white;
+}
+
+#postForm {
+    max-width: 700px;
+    margin-right: auto;
+    margin-left: auto;
+}

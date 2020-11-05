@@ -46,6 +46,8 @@
     transition: box-shadow 200ms ease-in, transform 200ms ease-in;
     cursor: pointer;
     box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+    text-decoration: none;
+    color: black;
 }
 .profile-character-square:hover {
     box-shadow: 4px 4px 4px rgba(0, 0, 0, 0.5);
@@ -55,14 +57,29 @@
     width: 90px;
     margin-top: auto;
     margin-bottom: auto;
+    height: 90px;
 }
 .character-small-icon img {
     height: 50px;
     border-radius: 50%;
     border: 5px solid #880000;
 }
+.character-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
 .character-name {
     font-weight: bold;
+}
+.character-title {
+    font-style: italic;
+}
+.character-bio {
+    margin-left: 10px;
+    margin-right: 10px;
+    color: grey;
+    font-style: italic;
 }
         
 div.new-character-box {
@@ -97,4 +114,12 @@ div.new-character-box:hover {
 input[type="text"] {
     width: 200px;
     font-size: 16px;
+}
+
+#imageStatus, #imageError, #titleStatus, #titleError {
+    font-style: italic;
+}
+
+#imageError, #titleError {
+    color: red;
 }

@@ -1,5 +1,3 @@
-const { post } = require("request-promise-native");
-
 let Thread = function(id, name, owner, parent, postnum, views, isGameThread) {
     this.id = id;
     this.name = name;

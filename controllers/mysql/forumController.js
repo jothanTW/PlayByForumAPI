@@ -1,5 +1,6 @@
 let utils = require("./controllerUtils");
 let request = require("request-promise-native");
+let configs = require("../../config/config");
 
 let Thread = require("../../models/thread");
 
@@ -42,6 +43,8 @@ exports.getForumData = function(data, session, returndata) {
 
             // reverse the crumbs
             returnData.crumbs.reverse();
+            // get rid of the last crumb
+            returnData.crumbs.pop();
 
             // alternatively, return thisForumData after adding threads
 
@@ -73,7 +76,7 @@ function getForumFromHierarchyR(forum, id) {
         for (let i = 0; i < forum.subforums.length; i++) {
             let f = getForumFromHierarchyR(forum.subforums[i], id);
             if (f) {
-                //f.crumbs.push({id: forum.subforums[i].id, title: forum.subforums[i].name});
+                f.crumbs.push({id: forum.subforums[i].id, title: forum.subforums[i].name});
                 return f;
             }
         }
@@ -104,65 +107,67 @@ exports.makeThread = function(data, session, returndata) {
                 msqlcon.getConnection((conerr, connection) => {
                     if (conerr) throw conerr;
                     connection.beginTransaction(transactionErr => {
-                        if (transactionErr) throw transactionErr;
-                        connection.query("select pkey, id, name, 'THREAD' type from threads where id like ? union select pkey, id, name, 'FORUM' type from forums where id = ?;",
-                            [data.title + '%', data.forum], (selerr, selret, f) => {
-                            if (selerr) throw selerr;
-                            let datfound = -1;
-                            let maxUThreadNum = 1;
-                            for (let i = 0; i < selret.length; i++) {
-                                if (selret[i].type == 'FORUM') {
-                                    datfound = selret[i].pkey;
-                                } else if (selret[i].type == 'THREAD') {
-                                    let threaditer = selret[i].id.substring(selret[i].id.indexOf('~') + 1);
-                                    // if this isn't a number something's gone wrong
-                                    let threaditerint = parseInt(threaditer);
-                                    if (maxUThreadNum < threaditerint) maxUThreadNum = threaditerint;
-                                }
+                        try {
+                            if (transactionErr) throw transactionErr;
+                            connection.query("select pkey, id, name, 'THREAD' type from threads where id like ? union select pkey, id, name, 'FORUM' type from forums where id = ?;",
+                                [data.title + '%', data.forum], (selerr, selret, f) => {
+                                if (selerr) throw selerr;
+                                let datfound = -1;
+                                let maxUThreadNum = 1;
+                                for (let i = 0; i < selret.length; i++) {
+                                    if (selret[i].type == 'FORUM') {
+                                        datfound = selret[i].pkey;
+                                    } else if (selret[i].type == 'THREAD') {
+                                        let threaditer = selret[i].id.substring(selret[i].id.indexOf('~') + 1);
+                                        // if this isn't a number something's gone wrong
+                                        let threaditerint = parseInt(threaditer);
+                                        if (maxUThreadNum < threaditerint) maxUThreadNum = threaditerint;
+                                    }
 
-                                if (datfound == -1) {
-                                    returndata({error: "Specified forum does not exist"});
-                                    return;
-                                }
-
-                                let newThreadId = threadid + "~" + (maxUThreadNum++);
-
-                                let threadArgs = [newThreadId, data.title, datfound, isgamethread ? '1' : '0', session.user.dbid];
-                                let postArgs = [0, 1, session.user.dbid, data.text];
-
-                                connection.query("insert into threads (id, name, parent, is_game_thread, owner) values (?, ?, ?, ?, ?)", threadArgs, (tinserr, tinsret, f) => {
-                                    if (tinserr) {
-                                        connection.rollback(err => {
-                                            if (err) throw err;
-                                            throw tinserr;
-                                        });
+                                    if (datfound == -1) {
+                                        utils.quickTransactionExit(con);
+                                        returndata({error: "Specified forum does not exist"});
                                         return;
                                     }
-                                    let threadpkey = tinsret.insertId;
-                                    postArgs[0] = threadpkey;
-                                    connection.query("insert into posts (parent, num, user, content) values (?, ?, ?, ?)", postArgs, (perr, pret, f) => {
-                                        if (perr) {
-                                            connection.rollback(err => {
-                                                if (err) throw err;
-                                                throw perr;
-                                            });
-                                            return;
+
+                                    let newThreadId = threadid + "~" + (maxUThreadNum++);
+
+                                    let threadArgs = [newThreadId, data.title, datfound, isgamethread ? '1' : '0', session.user.dbid];
+                                    let postArgs = [0, 1, session.user.dbid, data.text];
+
+                                    if (newThreadId > configs.maxThreadTitleLength || data.title > configs.maxThreadTitleLength) {
+                                        utils.quickTransactionExit(con);
+                                        returndata({error: "Thread title is too long"});
+                                        return;
+                                    }
+
+                                    connection.query("insert into threads (id, name, parent, is_game_thread, owner) values (?, ?, ?, ?, ?)", threadArgs, (tinserr, tinsret, f) => {
+                                        if (tinserr) {
+                                            throw tinserr;
                                         }
-                                        // we made it!
-                                        connection.commit(cerr => {
-                                            if (cerr) {
-                                                connection.rollback(err => {
-                                                    if (err) throw err;
-                                                    throw cerr;
-                                                });
-                                                return;
+                                        let threadpkey = tinsret.insertId;
+                                        postArgs[0] = threadpkey;
+                                        connection.query("insert into posts (parent, num, user, content) values (?, ?, ?, ?)", postArgs, (perr, pret, f) => {
+                                            if (perr) {
+                                                throw tinserr;
                                             }
-                                            returndata({status: "GOOD", threadid: newThreadId});
-                                        })
+                                            // we made it!
+                                            connection.commit(cerr => {
+                                                if (cerr) {
+                                                    throw cerr;
+                                                }
+                                                returndata({status: "GOOD", threadid: newThreadId});
+                                                connection.release();
+                                            })
+                                        });
                                     });
-                                });
-                            }
-                        });
+                                }
+                            });
+                        } catch (e) {
+                            console.log(e);
+                            utils.quickTransactionExit(con);
+                            returndata({error: "There was a server issue adding this thread"});
+                        }
                     })
                 });
             } else {

@@ -3,7 +3,7 @@
     <head>
         <% include includes %>
     </head>
-    <body onload="adjustAllDateFields()">
+    <body onload="adjustAllDateFields(); parseAllBBCode()">
         <% include banner %>
         <div class="forum-page">
             <div class="forum-page-title">
@@ -37,6 +37,14 @@
                 </div>
                 <% for (let thread of forumpage.threads) {%>
                     <% include thread-bar %>
+                <% } %>
+                <% if (forumpage.threads.length == 0) { %>
+                    <div class="forum-empty-message">There are no threads in this forum!</div>
+                <% } %>
+                <% if (locals.username) { %>
+                    <div class="forum-controls">
+                        <a class="button-link" href="/forum/<%=forumpage.id%>/new-thread">Post New Thread</a>
+                    </div>
                 <% } %>
             </div>
         </div>

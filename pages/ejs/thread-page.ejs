@@ -3,7 +3,7 @@
     <head>
         <% include includes %>
     </head>
-    <body onload="adjustAllDateFields()">
+    <body onload="adjustAllDateFields(); parseAllBBCode()">
         <% include banner %>
         <div class="thread-title"><%= threaddata.title %></div>
         <div class="thread-breadcrumbs">
@@ -17,5 +17,13 @@
                 <% include post-bar %>
             <% } %>
         </div>
+        <% if (locals.username) { %>
+            <div class="thread-post-box-container">
+                    <% include post-box %>
+                <form id="postForm" name="postForm" action="/thread/<%=threaddata.id%>/post/" method="POST">
+                    <input type="submit" value="Post">
+                </form>
+            </div>
+        <% } %>
     </body>
 </html>

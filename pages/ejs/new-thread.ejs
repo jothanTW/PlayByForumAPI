@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <% include includes %>
+    </head>
+    <body onload="adjustAllDateFields(); parseAllBBCode()">
+        <% include banner %>
+        <div class="thread-maker-page">
+            <div class="thread-breadcrumbs">
+                <a href="/">Home</a>
+                <% for (let crumb of forumdata.crumbs) { %>
+                    <div class="forum-page-crumb">&lt;<a href="<%= '/forum/' + crumb.id %>"><%= crumb.title %></a></div>
+                <% } %>
+            </div>
+            <div class="create-thread-post-box-container">
+                <input type="text" placeholder="New Thread Title" id="newThreadTitle" name="title" form="postForm" maxlength="<%=locals.maxThreadTitleLength ? locals.maxThreadTitleLength - 5 : 5%>">
+                <% include post-box %>
+                <form id="postForm" name="postForm" action="/forum/<%=forumdata.id%>/" method="POST">
+                    <input type="submit" value="Create Thread">
+                </form>
+            </div>
+        </div>
+    </body>
+</html>

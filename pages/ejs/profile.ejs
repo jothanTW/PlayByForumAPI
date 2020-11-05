@@ -2,7 +2,6 @@
 <html lang="en">
     <head>
         <% include includes %>
-        <script src="/script/uploads.js"></script>
     </head>
     <body onload="adjustAllDateFields()">
         <% include banner %>
@@ -16,8 +15,9 @@
                 <% } %>
                 <div class="user-image">
                     <% if (user.icon.length) { %>
-                        <img id="userimageele" src="<%=user.icon%>">
+                        <img id="userimageele" src="<%=locals.imgpath + user.icon%>">
                     <% } else if (user.name == locals.username) { %>
+                        <img id="userimageele" src="">
                         <div>You have no user icon. Upload one?</div>
                     <% } else { %>
                         <div>This user has no icon</div>
@@ -25,8 +25,12 @@
 
                     <% if (user.name == locals.username) { %>
                         <div style="display: flex; flex-direction: column; font-style: italic">
-                            Change your icon?
+                            <% if (user.icon.length) { %>
+                                Change your icon?
+                            <% } %>
                             <input type="file" id="userImageUpload" onchange="updateUserImage()" accept="image/*">
+                            <div id="imageStatus"></div>
+                            <div id="imageError"></div>
                         </div>
                         <button onclick="sendUserImageData()">Save Image Changes</button>
                     <% } %>
@@ -35,6 +39,8 @@
                     <% if (user.name == locals.username) { %>
                         <input type="text" placeholder="Optional Title Text" value="<%=user.title%>" origtitle="<%=user.title%>" id="usertitleinput" onchange="handleUserTitleChange()">
                         <button onclick="updateTitle()">Update Title Text</button>
+                        <div id="titleStatus"></div>
+                        <div id="titleError"></div>
                     <% } else { %>
                         <div><%= user.title %></div>
                     <% } %>
@@ -48,13 +54,18 @@
                         <p>You have <%= user.characters.length %> out of <%= locals.maxCharacters ? locals.maxCharacters : 100 %> character sheets uploaded.</p>
                     <% } %>
                     <% for (let i = 0; i < user.characters.length; i++) { %>
-                        <a href="/user/<%=user.name%>/character/<%=user.characters[i].name%>">
+                        <a class="profile-character-square" href="/user/<%=user.name%>/character/<%=user.characters[i].id%>">
                             <div class="character-small-icon">
                                 <% if (user.characters[i].icon) { %>
                                     <img src="<%=user.characters[i].icon%>">
                                 <% } %>
                             </div>
-                            <div class="character-name"><%= user.characters[i].name %></div>
+                            <div class="character-text">
+                                <div class="character-name"><%= user.characters[i].name %></div>
+                                <div class="character-title"><%= user.characters[i].title %></div>
+                                <div class="character-system"><%= user.characters[i].system %></div>
+                            </div>
+                            <div class="character-bio obscured"><%= user.characters[i].bio %></div>
                         </a>
                     <% } %>
                     <!-- div v-if="characters.length < maxCharacters && thisuser == username" class="new-character-box profile-character-square">

@@ -1,0 +1,33 @@
+@import 'groups';
+@import 'forums';
+@import 'threads';
+@import 'login';
+
+input[type="text"], input[type="password"] {
+    font-size: 16px;
+}
+
+.login-info-box {
+    margin-right: 0;
+}
+
+a.button-link {
+    display: inline-block;
+    text-decoration: none;
+    background-color: #EEEEEE;
+    color: #333333;
+    padding: 2px 6px 2px 6px;
+    border-top: 1px solid #CCCCCC;
+    border-right: 1px solid #333333;
+    border-bottom: 1px solid #333333;
+    border-left: 1px solid #CCCCCC;
+}
+
+a.button-link:active {
+    background-color: #AAA;
+    transform: translate(1px, 1px);
+    border-top: 1px solid #333333;
+    border-right: 1px solid #CCCCCC;
+    border-bottom: 1px solid #CCCCCC;
+    border-left: 1px solid #333333;
+}

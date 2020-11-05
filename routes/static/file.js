@@ -1,6 +1,19 @@
 module.exports = function(app) {
     let fs = require('fs');
+    let sass = require('node-sass');
 
+    app.route('/scss')
+        .get((req, res) => {
+            sass.render({file: './pages/scss/main.scss'}, (err, data) => {
+                if (err) {
+                    console.log(err);
+                    res.status(500).send("file could not be loaded");
+                    return;
+                }
+                res.set('Content-type', 'text/css');
+                res.send(data.css);
+            });
+        });
 
     app.route('/style/:file')
         .get((req, res) => {

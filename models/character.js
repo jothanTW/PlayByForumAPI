@@ -10,6 +10,7 @@ let Character = function(dbid, id, name, user, title, av) {
     this.icon = this.av;
     this.statBlock = {};
     this.bio = "";
+    this.system = "";
 }
 
 module.exports = Character;

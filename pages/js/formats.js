@@ -64,9 +64,31 @@ function formatDateToString(date, formatstring) {
 function adjustAllDateFields() {
     let dateElements = document.querySelectorAll("[date-format]");
     for (let e of dateElements) {
-        let content = e.textContent;
-        // TODO: get a default date format
-        let newDate = formatDateToString(new Date(content), e.getAttribute("date-format"));
-        e.textContent = newDate;
+        try {
+            let content = e.innerHTML;
+            // TODO: get a default date format
+            let newDate = formatDateToString(new Date(content), e.getAttribute("date-format"));
+            e.innerHTML = newDate;
+        } catch (e) {
+            console.log(e);
+        }
+    }
+}
+
+function parseAllBBCode() {
+    let bbElements = document.querySelectorAll("[parse-bbcode]");
+    for (let e of bbElements) {
+        try {
+            let content = e.innerHTML;
+            // TODO: get a default date format
+            let value = XBBCODE.process({
+                text: content,
+                removeMisalignedTags: false,
+                addInLineBreaks: false
+              }).html;
+            e.innerHTML = value;
+        } catch (e) {
+            console.log(e);
+        }
     }
 }

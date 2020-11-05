@@ -1,0 +1,23 @@
+<div class="create-post-box">
+    <div class="post-controls">
+        <button style="font-weight: bold;" onclick="addSimpleTag('b')">B</button>
+        <button style="font-style: italic;" onclick="addSimpleTag('i')">I</button>
+        <button style="text-decoration: underline;" onclick="addSimpleTag('u')">U</button>
+        <% if (locals.threaddata && locals.threaddata.isGame) { %>
+            <button class="post-control-toggle-ooc" id="toggleOOCButon" onclick="toggleOOC()">Edit OOC</button>
+            <select form="postForm" name="alias">
+                <option value="">-- No Character --</option>
+                <% for (let char of locals.threaddata.characters) { %>
+                    <option value="<%=char.id%>"><%=char.name%></option>
+                <% } %>
+            </select>
+        <% } %>
+
+    </div>
+    <div class="edit-text-area">
+        <textarea form="postForm" oninput="updatePreview()" id="post-box-text-area" name="text" class="post-text-area"></textarea>
+        <textarea form="postForm" oninput="updatePreview()" id="post-box-ooc-area" name="ooc" class="post-text-area post-ooc-area"></textarea>
+    </div>
+    <div class="preview-text-area" id="previewTextArea"></div>
+    <div class="preview-ooc-area" id="previewOOCArea"></div>
+</div>

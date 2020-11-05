@@ -54,71 +54,71 @@ exports.makePost = function(data, session, returndata) {
                 if (conerr) throw conerr;
                 connection.beginTransaction(bterr => {
                     if (bterr) throw bterr;
-
-                    connection.query("select threads.pkey, threads.id, threads.name, threads.is_game_thread, (select max(num) from posts where posts.parent = threads.pkey) maxPostNum, " +
-                                        "characters.pkey ckey, characters.id cid, characters.name cname, " +
-                                        "users.pkey ukey, users.userid " +
-                                    "from threads " +
-                                    "left join thread_characters on thread_characters.thread = threads.pkey " +
-                                    "left join characters on thread_characters.character = characters.pkey " +
-                                    "left join users on characters.user = users.pkey " +
-                                    "where threads.id = ?;", [threadid], (selerr, selret, f) => {
-                        if (selerr) throw selerr;
-                        if (selret.length == 0) {
-                            returndata({error: "Specified thread does not exist"});
-                            return;
-                        }
-                        // if you want to enforce character posting only in game threads, check it here
-                        //if (selret[0].is_game_thread) {
-                        //    
-                        //} else {
-                        //    
-                        //}
-                        console.log(selret);
-                        let charfound = -1;
-                        if (data.alias) {
-                            for (let i = 0; i < selret.length; i++) {
-                                if (selret[i].userid == session.user.name && selret[i].cid == data.alias) {
-                                    charfound = selret[i].ckey;
-                                    break;
+                    try {
+                        connection.query("select threads.pkey, threads.id, threads.name, threads.is_game_thread, (select max(num) from posts where posts.parent = threads.pkey) maxPostNum, " +
+                                            "characters.pkey ckey, characters.id cid, characters.name cname, " +
+                                            "users.pkey ukey, users.userid " +
+                                        "from threads " +
+                                        "left join thread_characters on thread_characters.thread = threads.pkey " +
+                                        "left join characters on thread_characters.character = characters.pkey " +
+                                        "left join users on characters.user = users.pkey " +
+                                        "where threads.id = ?;", [threadid], (selerr, selret, f) => {
+                            if (selerr) throw selerr;
+                            if (selret.length == 0) {
+                                returndata({error: "Specified thread does not exist"});
+                                utils.quickTransactionExit(connection);
+                                return;
+                            }
+                            // if you want to enforce character posting only in game threads, check it here
+                            //if (selret[0].is_game_thread) {
+                            //    
+                            //} else {
+                            //    
+                            //}
+                            console.log(selret);
+                            let charfound = -1;
+                            if (data.alias) {
+                                for (let i = 0; i < selret.length; i++) {
+                                    if (selret[i].userid == session.user.name && selret[i].cid == data.alias) {
+                                        charfound = selret[i].ckey;
+                                        break;
+                                    }
                                 }
-                            }
-                            if (charfound == -1) {
-                                returndata({error: "Specified character " + data.alias + " is not part of this thread"});
-                                return;
-                            }
-                        }
-                        let postarray = [selret[0].pkey, selret[0].maxPostNum + 1, session.user.dbid, data.text];
-                        if (data.alias) {
-                            postarray.push(charfound);
-                        } else {
-                            postarray.push(null);
-                        }
-                        if (data.ooc) {
-                            postarray.push(data.ooc);
-                        } else {
-                            postarray.push(null);
-                        }
-                        connection.query("insert into posts (parent, num, user, content, posts.character, ooc) values (?, ?, ?, ?, ?, ?)", postarray, (inserr, insret, f) => {
-                            if (inserr) {
-                                connection.rollback(err => {
-                                    if (err) throw err;
-                                    throw inserr;
-                                });
-                                return;
-                            }
-                            connection.commit(cerr => {
-                                if (cerr) {
-                                    connection.rollback(err => {
-                                        if (err) throw err;
-                                        throw cerr;
-                                    });
+                                if (charfound == -1) {
+                                    returndata({error: "Specified character " + data.alias + " is not part of this thread"});
+                                    utils.quickTransactionExit(connection);
                                     return;
                                 }
-                                returndata({status: "GOOD"});
-                            })
+                            }
+                            let postarray = [selret[0].pkey, selret[0].maxPostNum + 1, session.user.dbid, data.text];
+                            if (data.alias) {
+                                postarray.push(charfound);
+                            } else {
+                                postarray.push(null);
+                            }
+                            if (data.ooc) {
+                                postarray.push(data.ooc);
+                            } else {
+                                postarray.push(null);
+                            }
+                            connection.query("insert into posts (parent, num, user, content, posts.character, ooc) values (?, ?, ?, ?, ?, ?)", postarray, (inserr, insret, f) => {
+                                if (inserr) {
+                                    throw inserr;
+                                }
+                                connection.commit(cerr => {
+                                    if (cerr) {
+                                        throw cerr;
+                                    }
+                                    returndata({status: "GOOD"});
+                                    connection.release();
+                                })
+                            });
                         });
-                    });
+                    } catch (e) {
+                        console.log(e);
+                        utils.quickTransactionExit(connection);
+                        returndata({error: "There was a server issue making this post"});
+                    }
                 });
             });
         } else {
@@ -269,6 +269,7 @@ exports.getThreadData = function(data, session, returndata) {
             // TODO: get only a range of posts
             for (let i = 0; i < r.length; i++) {
                 let newUser = new User(r[i].userkey, r[i].userid, r[i].title, r[i].email);
+                newUser.icon = r[i].av;
                 let userChar = null;
                 if (r[i].ckey)
                     userChar = new Character(r[i].ckey, r[i].charid, r[i].charname, r[i].userid, r[i].chartitle, r[i].charav);

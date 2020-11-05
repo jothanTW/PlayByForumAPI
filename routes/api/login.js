@@ -25,4 +25,7 @@ module.exports = function(app) {
     app.route('/user/:user')
         .get(utils.createResponseFunction(loginController.getUserProfile))
         .put(utils.createResponseFunction(loginController.editUser));
+
+    app.route('/user/:user/role')
+        .post(utils.createResponseFunction(loginController.addUserRole));
 };

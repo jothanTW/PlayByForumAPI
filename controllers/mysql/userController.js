@@ -8,7 +8,9 @@ let imageDims = require("image-size");
 let utils = require("./controllerUtils.js");
 
 let userchecks = require("../../config/userInfoChecks");
-const Character = require("../../models/character.js");
+let Character = require("../../models/character.js");
+let Role = require("../../models/role");
+const session = require("express-session");
 
 const minSalt = 64;
 
@@ -16,10 +18,17 @@ let sqlcon = utils.connection;
 
 exports.doSignUp = function(data, session, returndata) {
     // get the auth string, decode it, make sure everything matches up
-    let badReq = false;
-    if (!data || !data.uauth || !data.id || !data.email) {
+    if (!data || !data.uauth) {
         returndata({ error: "Bad Request" });
         console.log(Object.keys(data));
+        return;
+    }
+    if (!data.id) {
+        returndata({ error: "Missing user id" });
+        return;
+    }
+    if (!data.email) {
+        returndata({ error: "Missing user email address" });
         return;
     }
     let astr = data.uauth;
@@ -68,7 +77,7 @@ exports.doSignUp = function(data, session, returndata) {
                             roles: [],
                             dbid: r1.insertId
                         }
-                        returndata({ status: "Account created!" });
+                        returndata({ status: "Account created!", user: session.user });
                     }
                 });
             } else {
@@ -149,7 +158,7 @@ exports.doLogin = function(data, session, returndata) {
                 let uroles = [];
                 for (let i = 0; i < r.length; i++) {
                     if (r[i].role) {
-                        uroles.push({forum: r[i].forum, role: r[i].role});
+                        uroles.push(new Role(r[i].role, r[i].forum));
                     }
                 }
                 // good! save the user's session
@@ -208,7 +217,7 @@ exports.getUserProfile = function(data, session, returndata) {
             threads -- in the future, when I'm storing thread creator info
         }*/  
     sqlcon.query("select users.userid, users.title, ifnull(users.av, '') av, (select count(*) from posts where posts.user = users.pkey) postnum, " +
-                "characters.id cid, characters.name cname, characters.title ctitle, characters.av cicon " +
+                "characters.id cid, characters.name cname, characters.title ctitle, characters.av cicon, characters.bio, characters.system " +
                 "from users " +
                 "left join characters on users.pkey = characters.user " +
                 "where users.userid = ?", [data.user], (e, r, s) => {
@@ -232,10 +241,13 @@ exports.getUserProfile = function(data, session, returndata) {
         if (r[0].cid) {
             for (let i = 0; i < r.length; i++) {
                 let newCharacter = new Character(-1, r[i].cid, r[i].cname, r[i].userid, r[i].ctitle, r[i].cicon);
+                newCharacter.bio = r[i].bio;
+                newCharacter.system = r[i].system;
                 userpdata.characters.push(newCharacter);
             }
         }
         // TODO: fetch threads
+        // TODO: fetch threads per character? 
         returndata(userpdata);
     });
     /*
@@ -332,33 +344,12 @@ function updateCharacterIcon(charid, iconname, chardata) {
     }
 }
 
-function updateUserIcon(username, iconname) {
-    // update the user's icon, retry db conflicts
-    request({
-        method: "GET",
-        uri: utils.urlstart + utils.designdoc + '/_view/user-by-name?key="' + username + '"',
-        headers: { Authorization: utils.totalAuthString },
-        json: true
-    }).then(doc =>{
-        for (let row of doc.rows) {
-            let user = Object.assign({}, row.value);
-            let userdbid = user._id;
-            delete user._id;
-            user.icon = iconname;
-            request({
-                method: "PUT",
-                uri: utils.urlstart + "/" + userdbid,
-                headers: { Authorization: utils.totalAuthString },
-                body: JSON.stringify(user),
-                resolveWithFullResponse: true
-            }).catch(e => {
-                if (e.statusCode == 409)
-                    updateUserIcon(username, iconname);
-                else
-                    console.log("Error in User Icon update for " + username + ": " + e.message);
-            });
+function updateUserIcon(userdbid, iconname) {
+    sqlcon.query("update users set av = ? where pkey = ?", [iconname, userdbid], (e, r, f) => {
+        if (e) {
+            console.log(e);
         }
-    }).catch(e => console.log(e.message));
+    });
 }
 
 exports.putIcon = function(data, session, returndata) {
@@ -409,7 +400,7 @@ exports.putIcon = function(data, session, returndata) {
                     returndata({error: "Could not find character!"});
                     return;
                 }
-                let filename = doc.rows[0].value._id + "." + fileformat.ext;
+                let filename = session.user.dbid + '-' + doc.rows[0].value._id + "." + fileformat.ext;
                 fs.writeFile("icons/" + filename, imageBuffer, (err) => {
                     if (err) {
                         console.log(err);
@@ -439,7 +430,7 @@ exports.putIcon = function(data, session, returndata) {
 
                     if (session.user.icon != filename) {
                         session.user.icon = filename;
-                        updateUserIcon(session.user.name, filename);
+                        updateUserIcon(session.user.dbid, filename);
                     }
 
 
@@ -461,49 +452,189 @@ exports.editUser = function(data, session, returndata) {
         return;
     }
 
-    request({
-        method: "GET",
-        uri: utils.urlstart + utils.designdoc + '/_view/user-by-name?key="' + session.user.name + '"',
-        headers: { Authorization: utils.totalAuthString },
-        json: true
-    }).then(doc =>{
-        for (let row of doc.rows) {
-            let user = Object.assign({}, row.value);
-            let userdbid = user._id;
-            delete user._id;
+    let userargs = [];
+    let setstring = "set";
             
-            // editable fields: 
-            //  title
-            //  uuuuuhhhh
-            //
-            //  never do name, do password ELSEWHERE, same w/ email
+    // editable fields: 
+    //  title
+    //  uuuuuhhhh
+    //
+    //  name, password, and email must be changed through a more secure process
+    // roles can't be edited by a user, generally
+    // regdate can't be edited
+    // icon is edited via puticon
 
-            let doEdit = false;
+    if (data.title || data.title == "") {
+        if (typeof data.title == 'string') {
+            userargs.push(data.title);
+            if (setstring.length> 3) setstring = setstring + ",";
+            setstring = setstring + " title = ?"
+        } else {
+            returndata({error: "Title must be a string object"});
+            return;
+        }
+    }
+    // add other fields here
 
-            if (data.title) {
-                if (typeof data.title == 'string') {
-                    user.title = data.title;
-                    doEdit = true;
-                } else {
-                    returndata({error: "Title must be a string object"});
-                    return;
-                }
-            }
-            // do any other changes here
 
-            if (!doEdit) {
-                returndata({error: "No edit fields provided"});
+    if (userargs.length == 0) {
+        returndata({error: "no fields to update"});
+        return;
+    }
+    sqlcon.query("update users " + setstring + " where userid = '" + data.user + "'", userargs, (e, r, f) => {
+        if (e) {
+            console.log(e);
+            returndata({error: "There was a problem updating the database"});
+            return;
+        }
+        returndata({status: "Edit successful"});
+    });
+}
+
+exports.addUserRole = function(data, session, returndata) {
+    // get the user and their roles, to make sure the user exists and no duplicate roles are added
+    // assume only an admin can do this
+    // TODO: handle custom roles?
+    if (!session.user) {
+        returndata({error: "You are not logged in!"});
+        return;
+    }
+    if (!data.role || typeof data.role != "string" || data.role.length == 0) {
+        returndata({error: "Role data is missing from request"});
+        return;
+    }
+    if (!data.user || typeof data.user != "string" || data.user.length == 0) {
+        returndata({error: "User data is missing from request"});
+        return;
+    }
+    if (data.role != "admin" && data.role != "mod") {
+        returndata({error: "Invalid selection for 'role'"});
+        return;
+    }
+    if (data.forum) {
+        if (typeof data.forum != "string") {
+            returndata({error: "'forum' must be a string"});
+            return;
+        }
+    }
+    let isAdmin = false;
+    utils.doesHavePermissions(session, ["admin"], null, hasPermission =>{
+        if (!hasPermission) {
+            returndata({error: "You do not have permissions to do that"});
+            return;
+        }
+        // TODO: handle custom roles?
+        // TODO: check for forums
+        sqlcon.getConnection((conerr, con) => {
+            if (conerr) {
+                console.log(conerr);
+                returndata({error: "There was a server issue adding this role to the user"});
                 return;
             }
-            request({
-                method: "PUT",
-                uri: utils.urlstart + "/" + userdbid,
-                headers: { Authorization: utils.totalAuthString },
-                body: JSON.stringify(user),
-                resolveWithFullResponse: true
-            }).then(response => {
-                returndata({status: "Edit successful"})
-            }).catch(e => utils.quickErrorResponse(e, returndata));
+            con.beginTransaction(terr => {
+                if (terr) {
+                    console.log(terr);
+                    returndata({error: "There was a server issue adding this role to the user"});
+                    return;
+                }
+                try {
+                    con.query("select users.pkey, users.userid, " +
+                                "user_roles.pkey rkey, user_roles.role, " +
+                                "forums.pkey fkey, forums.id, forums.name " + 
+                            "from users " +
+                            "left join user_roles on user_roles.user = users.pkey " +
+                            "left join forums on forums.pkey = user_roles.forum " +
+                            "where users.userid = ?", data.user, (e, r, f) => {
+                        if (e) {
+                            throw e;
+                        }
+                        if (r.length == 0) {
+                            returndata({error: "The specified user " + data.user + " could not be found"});
+                            utils.quickTransactionExit(con);
+                            return;
+                        }
+                        // look for duplicate roles
+                        let newRole = new Role(data.role, data.forum);
+                        let overRoles = [];
+                        for (let row of r) {
+                            let checkRole = new Role(row.role, row.id);
+                            if (checkRole.type == newRole.type) {
+                                if (checkRole.forum == newRole.forum || checkRole.forum.length == 0) {
+                                    returndata({error: "The specified role already exists on the user"});
+                                    utils.quickTransactionExit(con);
+                                    return;
+                                } else if (newRole.forum.length == 0) {
+                                    // mark this role for removal, it overlaps
+                                    checkRole.pkey = row.fkey;
+                                    overRoles.push(checkRole);
+                                }
+
+                            }
+                        }
+                        // if we make it here, time to start adding / removing roles
+
+                        // if this role has a forum, we need to see if it exists and get its key
+                        // if it has no forum, we may need to delete overlapping roles
+                        // if there are no roles to remove, skip this step
+                        if (newRole.forum.length == 0) {
+                            if (overRoles.length == 0) {
+                                finalAddUserRole(con, r[0].pkey, newRole.type, "", returndata);
+                            } else {
+                                let delsql = "delete from user_roles where pkey in (?";
+                                let delArgs = [overRoles[0].pkey];
+                                for (let i = 1; i < overRoles.length; i++) {
+                                    delsql = delsql + ", ?";
+                                    delArgs.push(overRoles[i].pkey);
+                                }
+                                con.query(delsql + ")", delArgs, (de, dr, df) => {
+                                    if (de) {
+                                        throw de;
+                                    }
+                                    finalAddUserRole(con, r[0].pkey, newRole.type, "", returndata);
+                                })
+                            }
+                        } else {
+                            con.query("select forums.pkey from forums where forums.id = ?", newRole.forum, (se, sr, sf) => {
+                                if (se) {
+                                    throw se;
+                                }
+                                if (sr.length == 0) {
+                                    returndata({error: "Specified forum " + newRole.forum + " does not exist"});
+                                    utils.quickTransactionExit(con);
+                                    return;
+                                }
+                                finalAddUserRole(con, r[0].pkey, newRole.type, sr[0].pkey, returndata);
+                            });
+                        }
+                    });
+                } catch (e) {
+                    console.log(e);
+                    utils.quickTransactionExit(con);
+                    returndata({error: "There was a server issue adding this role to the user"});
+                }
+
+            });
+        });
+    });    
+}
+
+function finalAddUserRole(con, user, role, forumid, returndata) {
+    if (forumid == '')
+        forumid = null;
+    con.query("insert into user_roles (user, role, forum) values (?, ?, ?)", [user, role, forumid], (e, r, f) => {
+        if (e) {
+            throw e;
         }
-    }).catch(e => console.log(e.message));
+        con.commit(comerr => {
+            if (comerr) {
+                throw comerr;
+            }
+            returndata({status: "GOOD"});
+            con.release();
+        })
+    })
+}
+
+exports.deleteUserRole = function(data, session, returndata) {
+
 }

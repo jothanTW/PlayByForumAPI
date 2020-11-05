@@ -5,12 +5,26 @@
     </head>
     <body onload="adjustAllDateFields()">
         <% include banner %>
-        <div class="login-page">
+        <div class="<%= 'login-page' + (data.isRegistering ? ' registering' : '')%>" id="loginContainer">
             <div class="login-box">
+                <button onclick="document.getElementById('loginContainer').classList.add('registering')">Register?</button>
                 <form id="loginform" action="/login/" method="POST">
-                    <input id="username" name="id" type="text">
-                    <input id="password" name="password" type="password">
+                    <input id="username" name="id" type="text" placeholder="Username">
+                    <input id="password" name="password" type="password" placeholder="Password">
                     <input id="loginbutton" type="submit" value="Login">
+                </form>
+                <% if (data.error) { %>
+                    <div class="login-error-box"><%= data.error %></div>
+                <% } %>
+            </div>
+            <div class="login-box register-box">
+                <button onclick="document.getElementById('loginContainer').classList.remove('registering')">Sign In?</button>
+                <form id="loginform" action="/register/" method="POST">
+                    <input id="email2" name="email" type="text" placeholder="Email Address" required pattern="^.+@.+$">
+                    <input id="username2" name="id" type="text" placeholder="Username" required pattern="[a-zA-Z0-9]+">
+                    <input id="password2" name="password" type="password" placeholder="Password" required>
+                    <input oninput="checkPasswordMatch()" onchange="checkPasswordMatch()" id="cpassword" name="cpassword" type="password" placeholder="Confirm Password" required>
+                    <input id="loginbutton" type="submit" onclick="checkPasswordMatch()" value="Create Account">
                 </form>
                 <% if (data.error) { %>
                     <div class="login-error-box"><%= data.error %></div>

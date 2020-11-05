@@ -4,7 +4,7 @@ const usernameregex = /[^a-z0-9]+/gi;
 const passmin = 6;
 const passmax = 50;
 const passregex = /[^a-z0-9!?@#$%]/gi;
-const emailregex = /^.+@.+$/gi
+const emailregex = /^.+@.+$/gi;
 
 exports.checkUserName = function(name) {
     if (name.length < usernamelen)

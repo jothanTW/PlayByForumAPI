@@ -9,27 +9,25 @@
             <div class="poster-char-name"><%= post.header.char %></div>
         <% } %>
         <% if (post.header.icon) { %>
-            <div class="poster-icon"><img src="<%= post.header.icon %>"></div>
+            <div class="poster-icon"><img src="<%= locals.imgpath + post.header.icon %>"></div>
         <% } %>
         <div class="poster-title"><%= post.header.title %></div>
         <div class="poster-date" date-format="M DD, YYYY"><%= post.header.date %></div>
     </div>
     <div class="post-content">
         <div class="post-text">
-            <!-- div class="post-area" :class="{'active': !isEditing}" v-html="getFormattedText(post.textBlock.text)"></div-->
-            <div class="post-area active" >
+            <div class="post-area active" parse-bbcode>
                 <%= post.textBlock.text %>
             </div>
         </div>
-        <div class="post-ooc" v-if="isGamePost" :class="{'hidden': oocHidden, 'bordered': post.textBlock.ooc && post.textBlock.ooc.length}">
-            <!--div class="post-area" :class="{'active': !isEditing && !oocHidden}" v-if="post.textBlock.ooc" v-html="getFormattedText(post.textBlock.ooc)"></div-->
-            <% if (post.textBlock.ooc) { %>
-                <div class="post-area active" >
+        <% if (post.textBlock.ooc && post.textBlock.ooc.length) { %>
+            <button onclick="toggleShowPostOOC('<%=post.num%>')">Toggle OOC Text</button>
+            <div class="post-ooc">
+                <div class="post-area" parse-bbcode>
                     <%= post.textBlock.ooc %>
                 </div>
-            <% } %>
-            <!--button v-if="isGamePost && (isEditing || (post.textBlock.ooc && post.textBlock.ooc.length > 0))" class="show-hide-ooc" @click="oocHidden = !oocHidden">{{ oocHidden ? 'Show' : 'Hide'}} OOC Content</button-->
-        </div>
+            </div>
+        <% } %>
         <% if (post.edit && post.edit.date) { %>
             <div class="post-edit">Edited at <%= post.edit.date %></div>
         <% } %>

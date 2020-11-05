@@ -1,0 +1,36 @@
+.login-page {
+    display: flex;
+    .login-box {
+        margin: auto;
+        border: 10px solid grey;
+        padding: 10px;
+        border-radius: 10px;
+        #loginform {
+            width: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            input {
+                width: 100%;
+                margin: 5px;
+            }
+        }
+        button {
+            margin-right: 0;
+            margin-left: auto;
+            display: flex;
+        }
+    }
+    .register-box {
+        display: none;
+    }
+}
+
+.login-page.registering {
+    .login-box {
+        display: none;
+    }
+    .register-box {
+        display: block;
+    }
+}

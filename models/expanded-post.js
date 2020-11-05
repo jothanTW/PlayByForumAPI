@@ -17,12 +17,12 @@ let ExpandedPost = function(parent, num, userObject, text, date, characterObject
     if (characterObject) {
         this.header.alias = characterObject.id;
         this.header.title = characterObject.title;
-        this.header.icon = characterObject.av;
+        this.header.icon = characterObject.icon;
         this.header.char = characterObject.name;
     } else {
         //this.header.alias = userObject.id;
         this.header.title = userObject.title;
-        this.header.icon = userObject.av;
+        this.header.icon = userObject.icon;
     }
 }
 

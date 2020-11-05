@@ -11,7 +11,7 @@ let msqlcon = utils.connection;
 
 exports.getCharacter = function(data, session, returndata) {
     // assume each character has a unique name under each player
-    msqlcon.query("select characters.id, characters.name, characters.title, characters.av, characters.statblock, characters.bio " +
+    msqlcon.query("select characters.id, characters.name, characters.title, characters.av, characters.statblock, characters.bio, characters.system " +
                 "from characters " +
                 "join users on users.pkey = characters.user " +
                 "where characters.id = ? and users.userid = ?;", [data.charactername, data.username], (e, r, f) => {
@@ -36,12 +36,14 @@ exports.getCharacter = function(data, session, returndata) {
             console.log("Invalid statblock on character " + data.charactername + " under user " + data.username);
         }
         foundCharacter.bio = r[0].bio;
+        if (r[0].system)
+            foundCharacter.system = r[0].system;
         returndata({status: "Character retrieved", character: foundCharacter});
     });
 }
 
 exports.getAllCharacters = function(data, session, returndata) {
-    msqlcon.query("select characters.id, characters.name, characters.title, characters.av, characters.statblock, characters.bio " +
+    msqlcon.query("select characters.id, characters.name, characters.title, characters.av, characters.statblock, characters.bio, characters.system " +
                 "from characters " +
                 "join users on users.pkey = characters.user " +
                 "where users.userid = ?;", [data.username], (e, r, f) => {
@@ -59,6 +61,8 @@ exports.getAllCharacters = function(data, session, returndata) {
                 console.log("Invalid statblock on character " + data.charactername + " under user " + data.username);
             }
             foundCharacter.bio = r[i].bio;
+            if (r[i].system)
+                foundCharacter.system = r[i].system;
             characters.push(foundCharacter);
         }
         returndata({status: characters.length + " character" + (characters.length == 1 ? '' : 's') + " found", characters: characters});
@@ -101,12 +105,13 @@ exports.addCharacter = function(data, session, returndata) {
             returndata({error: "Character by that name already exists!"});
             return;
         }
-        let charArgs = [session.user.dbid, charid, data.characterName, "", null, data.statBlock, ""];
+        let charArgs = [session.user.dbid, charid, data.characterName, "", null, data.statBlock, "", ""];
         if (data.title && typeof data.title == "string") charArgs[3] = data.title;
         if (data.icon && typeof data.icon == "string") charArgs[4] = data.icon;
         if (data.bio && typeof data.bio == "string") charArgs[6] = data.bio;
+        if (data.system && typeof data.system == "string") charArgs[7] = data.system;
 
-        msqlcon.query("insert into characters (user, id, name, title, av, statblock, bio) values (?, ?, ?, ?, ?, ?, ?)", charArgs, (e2, r2, f2) => {
+        msqlcon.query("insert into characters (user, id, name, title, av, statblock, bio, system) values (?, ?, ?, ?, ?, ?, ?, ?)", charArgs, (e2, r2, f2) => {
             if (e2) {
                 console.log(e2);
                 returndata({error: "There was a server error creating the character"});

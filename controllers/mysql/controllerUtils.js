@@ -47,6 +47,13 @@ exports.createResponseFunction = function(func) {
     }
 }
 
+exports.quickTransactionExit = function(con) {
+    con.rollback(err => {
+        if (err) console.log(err);
+        con.release();
+    })
+}
+
 exports.createTrueResponseFunction = function(func) {
     return function(req, res) {
         let data = Object.assign({}, req.body, req.params);
@@ -139,4 +146,64 @@ exports.getForumHierarchy = function(callback) {
         }
         callback(groups);
     });
+}
+
+exports.getForumFromHierarchy = function(groupdata, id) {
+    for (let i = 0; i < groupdata.length; i++) {
+        let g = groupdata[i];
+        for (let j = 0; j < g.forums.length; j++) {
+            let f = getForumFromHierarchyR(g.forums[j], id);
+            if (f) {
+                f.crumbs.push({id: g.forums[j].id, title: g.forums[j].name});
+                //f.crumbs.push({id: g.id, title: g.name});
+                return f;
+            }
+        }
+    }
+    return null;
+}
+
+function getForumFromHierarchyR(forum, id) {
+    if (forum.id == id) {
+        forum.crumbs = [];
+        return forum;
+    } else {
+        for (let i = 0; i < forum.subforums.length; i++) {
+            let f = getForumFromHierarchyR(forum.subforums[i], id);
+            if (f) {
+                f.crumbs.push({id: forum.subforums[i].id, title: forum.subforums[i].name});
+                return f;
+            }
+        }
+    }
+    return null;
+}
+
+
+
+exports.doesHavePermissions = function(session, roles, forum, callback) {
+    if (!session.user) {
+        callback(false);
+        return;
+    }
+    if (roles.length == 0) {
+        callback(true);
+        return;
+    }
+    let args = [session.user.dbid, forum, roles[0]];
+    let sql = "select count(*) from user_roles where user = ? and (forum = NULL || forum = ?) and role in (?";
+    for (let i = 1; i < roles.length; i++) {
+        args.push(roles[i]);
+        sql = sql + ", ?";
+    }
+    sql = sql + ") ";
+
+    exports.connection.query(sql, args, (e, r, f) => {
+        if (e) {
+            console.log(e);
+            callback(false);
+        } else {
+            callback(r.length > 0);
+        }
+    })
 }
