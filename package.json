@@ -18,7 +18,7 @@
     "file-type": "^12.3.0",
     "image-size": "^0.8.1",
     "mysql": "^2.18.1",
-    "node-sass": "^4.14.1",
+    "node-sass": "^7.0.0",
     "nodemon": "^1.19.2",
     "request": "^2.88.0",
     "request-promise-native": "^1.0.7"
